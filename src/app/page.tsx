@@ -601,19 +601,15 @@ function GameStage(props: GameStageProps) {
           Sistem membagi ke 3 tumpukan.
         </h3>
         <p className="font-body text-xs text-[#737373] mb-5">
-          Klik tumpukan untuk lihat isinya.
+          Klik tombol INSPEKSI untuk lihat isi tumpukan.
         </p>
         <div className="grid grid-cols-3 gap-4 sm:gap-8">
           {piles.map((pile, i) => (
-            <button
-              key={i}
-              onClick={() => onInspectPile(i)}
-              className="flex flex-col items-center group cursor-pointer"
-            >
-              <div className="font-mono text-[10px] text-[#737373] tracking-widest mb-2 group-hover:text-[#c41e3a] transition-colors">
+            <div key={i} className="flex flex-col items-center">
+              <div className="font-mono text-[10px] text-[#737373] tracking-widest mb-2">
                 P{i + 1} · {pile.length}
               </div>
-              <div className="relative h-44 w-full flex items-end justify-center border border-transparent group-hover:border-[#c41e3a] transition-colors">
+              <div className="relative h-44 w-full flex items-end justify-center mb-3">
                 <AnimatePresence>
                   {pile.map((card, j) => (
                     <motion.div
@@ -629,10 +625,13 @@ function GameStage(props: GameStageProps) {
                   ))}
                 </AnimatePresence>
               </div>
-              <div className="font-mono text-[10px] text-[#737373] mt-2 group-hover:text-[#c41e3a] transition-colors">
-                ↗ inspect
-              </div>
-            </button>
+              <button
+                onClick={() => onInspectPile(i)}
+                className="font-mono text-xs font-bold tracking-widest bg-white text-[#0a0a0a] px-4 py-2.5 border-2 border-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white transition-colors w-full"
+              >
+                INSPEKSI P{i + 1}
+              </button>
+            </div>
           ))}
         </div>
       </section>
@@ -649,9 +648,9 @@ function GameStage(props: GameStageProps) {
         <h3 className="font-display font-bold text-2xl sm:text-3xl mb-2">
           Apakah kartumu di P{currentAskPile + 1}?
         </h3>
-        <p className="font-mono text-xs text-[#737373] mb-3">
+        <p className="font-mono text-xs text-[#737373] mb-5">
           c* = <span className="text-[#c41e3a] font-bold">{selectedCard?.label}</span>
-          <span className="ml-3 text-[#737373]">klik tumpukan untuk lihat isi</span>
+          <span className="ml-3 text-[#737373]">klik tombol INSPEKSI untuk lihat isi tumpukan</span>
         </p>
 
         <div className="grid grid-cols-3 gap-4 sm:gap-8 mb-6">
@@ -659,18 +658,17 @@ function GameStage(props: GameStageProps) {
             const isCurrent = i === currentAskPile
             const isPast = i < currentAskPile
             return (
-              <motion.button
+              <motion.div
                 key={i}
-                onClick={() => onInspectPile(i)}
                 animate={isCurrent ? { scale: 1.04 } : { scale: 1 }}
-                className={`flex flex-col items-center p-2 border cursor-pointer group ${isCurrent ? 'border-[#c41e3a] bg-[#fafaf7]' : isPast ? 'border-[#e5e5e5] opacity-50 hover:opacity-80' : 'border-[#0a0a0a] hover:border-[#c41e3a]'}`}
+                className={`flex flex-col items-center p-2 border ${isCurrent ? 'border-[#c41e3a] bg-[#fafaf7]' : isPast ? 'border-[#e5e5e5] opacity-50' : 'border-[#0a0a0a]'}`}
               >
                 <div className="font-mono text-[10px] text-[#737373] tracking-widest mb-2">
                   P{i + 1} · {pile.length}
                   {isPast && <span className="ml-1">✗</span>}
                   {isCurrent && <span className="ml-1 text-[#c41e3a]">←</span>}
                 </div>
-                <div className="relative h-44 w-full flex items-end justify-center">
+                <div className="relative h-44 w-full flex items-end justify-center mb-3">
                   {pile.map((card, j) => (
                     <div
                       key={card.id}
@@ -684,10 +682,13 @@ function GameStage(props: GameStageProps) {
                     </div>
                   ))}
                 </div>
-                <div className="font-mono text-[10px] text-[#737373] mt-2 group-hover:text-[#c41e3a] transition-colors">
-                  ↗ inspect
-                </div>
-              </motion.button>
+                <button
+                  onClick={() => onInspectPile(i)}
+                  className="font-mono text-xs font-bold tracking-widest bg-white text-[#0a0a0a] px-3 py-2.5 border-2 border-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white transition-colors w-full"
+                >
+                  INSPEKSI P{i + 1}
+                </button>
+              </motion.div>
             )
           })}
         </div>
