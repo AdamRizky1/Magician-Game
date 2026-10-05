@@ -1,8 +1,19 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, Wand2, RotateCw, HelpCircle, CheckCircle2, Layers, Target, Brain } from 'lucide-react'
+import {
+  Sparkles,
+  Wand2,
+  RotateCw,
+  HelpCircle,
+  CheckCircle2,
+  Layers,
+  Brain,
+  X,
+  Check,
+  Hand,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +26,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 // ===== Tipe data =====
 type Suit = 'hearts' | 'diamonds' | 'clubs' | 'spades'
@@ -33,14 +43,21 @@ interface PokerCard {
 type GamePhase =
   | 'intro'
   | 'shuffling'
-  | 'reveal-selection'
-  | 'memorize'
-  | 'dealing'
-  | 'await-pick'
-  | 'collecting'
-  | 'final-reveal'
-  | 'trick-reveal'
+  | 'reveal-selection' // 52 kartu face-up, user pilih 1
+  | 'memorize' // tampilkan kartu pilihan user
+  | 'trick-prep' // sistem ambil 27 kartu (termasuk milik user)
+  | 'dealing' // sistem bagi ke 3 tumpukan
+  | 'ask-pile' // sistem nanya "kartumu di tumpukan ini? Ya/Tidak"
+  | 'collecting' // animasi pengumpulan tumpukan terpilih
+  | 'final-reveal' // 3 kartu face-down
+  | 'trick-reveal' // kartu user di-reveal
   | 'completed'
+
+// ===== Konstanta =====
+const FULL_DECK_SIZE = 52
+const TRICK_SIZE = 27 // 3^3 → converge rapi ke 3 kartu setelah 2 ronde
+const PILE_COUNT = 3
+const ROUNDS = 2 // 27 → 9 → 3
 
 // ===== Util kartu =====
 const SUITS: { suit: Suit; symbol: string; color: SuitColor }[] = [
@@ -92,11 +109,6 @@ function shuffle<T>(arr: T[]): T[] {
   return out
 }
 
-// ===== Konstanta trik =====
-const TRICK_SIZE = 27 // 3^3 = 27, supaya converge rapi ke 3 kartu
-const PILE_COUNT = 3
-const ROUNDS = 3
-
 // ===== Komponen kartu mini =====
 function MiniCard({
   card,
@@ -105,6 +117,7 @@ function MiniCard({
   selected = false,
   onClick,
   size = 'md',
+  dim = false,
 }: {
   card?: PokerCard
   faceDown?: boolean
@@ -112,6 +125,7 @@ function MiniCard({
   selected?: boolean
   onClick?: () => void
   size?: 'sm' | 'md' | 'lg'
+  dim?: boolean
 }) {
   const dims = {
     sm: 'w-10 h-14 text-[10px] rounded-md',
@@ -125,7 +139,7 @@ function MiniCard({
         onClick={onClick}
         className={`${dims} relative cursor-pointer select-none border-2 transition-all
           bg-gradient-to-br from-slate-800 via-slate-900 to-black
-          border-slate-700 shadow-lg overflow-hidden`}
+          border-slate-700 shadow-lg overflow-hidden ${dim ? 'opacity-30' : ''}`}
       >
         <div className="absolute inset-1 rounded-md border border-amber-500/30 flex items-center justify-center">
           <div className="text-amber-500/40 text-xl font-serif">✦</div>
@@ -151,6 +165,7 @@ function MiniCard({
         ${highlight ? 'border-amber-500 ring-4 ring-amber-400/50 -translate-y-2' : ''}
         ${selected ? 'border-emerald-500 ring-4 ring-emerald-400/60' : ''}
         ${!highlight && !selected ? 'border-slate-300' : ''}
+        ${dim ? 'opacity-30 grayscale' : ''}
         shadow-md hover:shadow-xl hover:-translate-y-0.5 flex flex-col items-center justify-center p-1`}
     >
       <span className={`font-bold ${card.color === 'red' ? 'text-rose-600' : 'text-slate-900'} leading-none`}>
@@ -172,140 +187,130 @@ function MiniCard({
 export default function Home() {
   const [phase, setPhase] = useState<GamePhase>('intro')
   const [fullDeck] = useState<PokerCard[]>(() => buildFullDeck())
-  const [workingDeck, setWorkingDeck] = useState<PokerCard[]>([]) // 27 kartu yang dipakai untuk trik
+  const [shuffledDeck, setShuffledDeck] = useState<PokerCard[]>([]) // 52 kartu untuk seleksi
   const [selectedCard, setSelectedCard] = useState<PokerCard | null>(null)
+  const [workingDeck, setWorkingDeck] = useState<PokerCard[]>([]) // 27 kartu untuk trik
   const [piles, setPiles] = useState<PokerCard[][]>([[], [], []])
+  const [currentAskPile, setCurrentAskPile] = useState(0) // pile yang sedang ditanya
   const [pickedPile, setPickedPile] = useState<number | null>(null)
   const [round, setRound] = useState(0)
   const [finalThree, setFinalThree] = useState<PokerCard[]>([])
   const [revealIndex, setRevealIndex] = useState(0)
   const [autoReveal, setAutoReveal] = useState(false)
 
-  // Hitung posisi target teoritis (untuk display matematika)
-  // Pada ronde r, dengan trik 27-kartu 3-tumpukan 3-ronde,
-  // posisi kartu di akhir konvergen ke indeks 13 (tengah) dari 27.
-  // Setelah truncate ke 3 kartu terakhir, kartu ada di antara 3 itu.
-  const theoreticalNote = useMemo(() => {
-    return `f(x) = (a·x + b) mod 27 → konvergen ke indeks tengah → kartumu PASTI di 3 kartu terakhir`
-  }, [])
-
-  // ===== Step 1: Kocok deck & ambil 27 kartu =====
+  // ===== Start: kocok 52 kartu =====
   const startTrick = useCallback(() => {
     setPhase('shuffling')
     setRound(0)
     setSelectedCard(null)
+    setShuffledDeck([])
+    setWorkingDeck([])
+    setPiles([[], [], []])
+    setCurrentAskPile(0)
     setPickedPile(null)
     setFinalThree([])
     setRevealIndex(0)
+    setAutoReveal(false)
 
-    // Acak deck 52, ambil 27 pertama
-    const shuffled = shuffle(fullDeck).slice(0, TRICK_SIZE)
-    setWorkingDeck(shuffled)
+    const shuffled = shuffle(fullDeck)
+    setShuffledDeck(shuffled)
 
-    // Setelah 800ms, pindah ke reveal-selection
-    setTimeout(() => {
-      setPhase('reveal-selection')
-    }, 900)
+    setTimeout(() => setPhase('reveal-selection'), 900)
   }, [fullDeck])
 
-  // ===== Step 2: User pilih kartu (klik salah satu) =====
-  const chooseCard = useCallback(
-    (card: PokerCard) => {
-      setSelectedCard(card)
-      setPhase('memorize')
-    },
-    [],
-  )
+  // ===== User pilih kartu dari 52 =====
+  const chooseCard = useCallback((card: PokerCard) => {
+    setSelectedCard(card)
+    setPhase('memorize')
+  }, [])
 
-  // ===== Step 3: Mulai dealing — bagi 27 jadi 3 piles of 9 =====
-  const startDealing = useCallback(() => {
+  // ===== Mulai ronde: bagi ke 3 tumpukan =====
+  const startRound = useCallback((roundNum: number, deck: PokerCard[]) => {
     setPhase('dealing')
-    setRound(1)
+    setRound(roundNum)
+    setPickedPile(null)
+    setCurrentAskPile(0)
+    setPiles([[], [], []])
 
-    // Deal: distribusi vertikal. Kartu ke-i masuk ke pile (i % 3), index dalam pile = floor(i/3)
-    // Ini adalah deal column-by-column supaya saat user pilih pile, kita tahu posisi kartu.
+    // Deal column-by-column supaya tiap tumpukan dapat ~N/3 kartu
     const newPiles: PokerCard[][] = [[], [], []]
-    workingDeck.forEach((card, idx) => {
+    deck.forEach((card, idx) => {
       newPiles[idx % PILE_COUNT].push(card)
     })
     setPiles(newPiles)
 
-    // Setelah animasi dealing (1.2s), tunggu user pilih pile
+    setTimeout(() => setPhase('ask-pile'), 1500)
+  }, [])
+
+  // ===== Mulai trik proper: sistem ambil 27 kartu =====
+  const startTrikProper = useCallback(() => {
+    if (!selectedCard) return
+    setPhase('trick-prep')
+
+    // Sistem ambil 27 kartu: kartu user + 26 random dari 51 sisanya
+    const remaining = fullDeck.filter(c => c.id !== selectedCard.id)
+    const random26 = shuffle(remaining).slice(0, TRICK_SIZE - 1)
+    const trickDeck = shuffle([selectedCard, ...random26])
+    setWorkingDeck(trickDeck)
+
     setTimeout(() => {
-      setPhase('await-pick')
-    }, 1300)
-  }, [workingDeck])
+      startRound(1, trickDeck)
+    }, 1800)
+  }, [selectedCard, fullDeck, startRound])
 
-  // ===== Step 4: User tunjuk pile mana yang berisi kartunya =====
-  const pickPile = useCallback(
-    (pileIdx: number) => {
-      if (phase !== 'await-pick') return
-      setPickedPile(pileIdx)
+  // ===== User jawab Ya/Tidak untuk tumpukan currentAskPile =====
+  const answerPile = useCallback(
+    (yes: boolean) => {
+      if (yes) {
+        // User bilang Ya → kartu ada di tumpukan ini
+        const pileIdx = currentAskPile
+        setPickedPile(pileIdx)
+        setPhase('collecting')
 
-      // Animasi singkat "mengumpulkan"
-      setPhase('collecting')
-
-      setTimeout(() => {
-        // Kumpulkan piles: pile terpilih ditaruh di TENGAH
-        // urutan: pile0, pickedPile (tengah), pile2 — tapi kalau pickedPile = 0 atau 2, tetap di tengah
-        const order = [0, 1, 2].filter(i => i !== pileIdx)
-        const leftPile = order[0]
-        const rightPile = order[1]
-        // Susunan: kiri - tengah(picked) - kanan
-        const newDeck = [
-          ...piles[leftPile],
-          ...piles[pileIdx],
-          ...piles[rightPile],
-        ]
-
-        if (round < ROUNDS) {
-          // Lanjut ronde berikutnya
-          setWorkingDeck(newDeck)
-          setPiles([[], [], []])
-          setPickedPile(null)
-
-          if (round + 1 >= ROUNDS) {
-            // RONDE TERAKHIR: ambil 3 kartu terakhir
-            // Setelah 3 ronde pile-3-pick-middle, kartu ada di posisi 13 (tengah) dari 27
-            // Tapi user minta "3 kartu terakhir", jadi kita pakai versi adaptif:
-            // Ambil 3 kartu terakhir dari deck hasil ronde ke-3
-            const lastThree = newDeck.slice(-3)
-            setFinalThree(lastThree)
-            setPhase('final-reveal')
+        setTimeout(() => {
+          const newDeck = piles[pileIdx]
+          if (round < ROUNDS) {
+            startRound(round + 1, newDeck)
           } else {
-            // Lanjut deal ronde berikutnya
-            setRound(r => r + 1)
-            setPhase('dealing')
-
-            const nextPiles: PokerCard[][] = [[], [], []]
-            newDeck.forEach((card, idx) => {
-              nextPiles[idx % PILE_COUNT].push(card)
-            })
-            setPiles(nextPiles)
-
-            setTimeout(() => {
-              setPhase('await-pick')
-            }, 1300)
+            // Ronde terakhir selesai → 3 kartu tersisa
+            setFinalThree(newDeck)
+            setPhase('final-reveal')
           }
+        }, 900)
+      } else {
+        // User bilang Tidak → lanjut ke tumpukan berikutnya
+        if (currentAskPile < PILE_COUNT - 1) {
+          setCurrentAskPile(p => p + 1)
+        } else {
+          // Tumpukan terakhir — kartu HARUS di sini (logika)
+          // Otomatis anggap Ya
+          const pileIdx = currentAskPile
+          setPickedPile(pileIdx)
+          setPhase('collecting')
+          setTimeout(() => {
+            const newDeck = piles[pileIdx]
+            if (round < ROUNDS) {
+              startRound(round + 1, newDeck)
+            } else {
+              setFinalThree(newDeck)
+              setPhase('final-reveal')
+            }
+          }, 900)
         }
-      }, 700)
+      }
     },
-    [phase, piles, round],
+    [currentAskPile, piles, round, startRound],
   )
 
-  // ===== Step 5: Final reveal — tunjukkan 3 kartu terakhir =====
-  // Auto-reveal kartu user di antara 3 itu
+  // ===== Auto-reveal 3 kartu =====
   useEffect(() => {
     if (phase !== 'final-reveal') return
     if (!autoReveal) return
 
     if (revealIndex < 3) {
-      const t = setTimeout(() => {
-        setRevealIndex(i => i + 1)
-      }, 700)
+      const t = setTimeout(() => setRevealIndex(i => i + 1), 700)
       return () => clearTimeout(t)
     }
-
     if (revealIndex === 3) {
       const t = setTimeout(() => setPhase('trick-reveal'), 800)
       return () => clearTimeout(t)
@@ -320,9 +325,11 @@ export default function Home() {
   // ===== Reset =====
   const reset = useCallback(() => {
     setPhase('intro')
+    setShuffledDeck([])
     setWorkingDeck([])
     setSelectedCard(null)
     setPiles([[], [], []])
+    setCurrentAskPile(0)
     setPickedPile(null)
     setRound(0)
     setFinalThree([])
@@ -330,22 +337,25 @@ export default function Home() {
     setAutoReveal(false)
   }, [])
 
-  // ===== Hitung progress =====
+  // ===== Progress bar =====
   const progress = useMemo(() => {
     switch (phase) {
       case 'intro':
         return 0
       case 'shuffling':
+        return 8
       case 'reveal-selection':
-        return 15
+        return 18
       case 'memorize':
         return 25
+      case 'trick-prep':
+        return 30
       case 'dealing':
-      case 'await-pick':
+      case 'ask-pile':
       case 'collecting':
-        return 25 + (round / ROUNDS) * 60
+        return 30 + (round / ROUNDS) * 55
       case 'final-reveal':
-        return 90
+        return 92
       case 'trick-reveal':
         return 100
       default:
@@ -383,8 +393,9 @@ export default function Home() {
             </h1>
           </div>
           <p className="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto">
-            Berdasarkan algoritma matematis murni. Kartu pilihanmu{' '}
-            <span className="text-amber-400 font-semibold">PASTI</span> mendarat di 3 kartu terakhir — 100% tanpa keberuntungan.
+            Pilih 1 dari 52 kartu. Sistem yang membagi-bagi ke tumpukan dan bertanya{' '}
+            <span className="text-amber-400 font-semibold">"Apakah kartumu di sini?"</span> — sampai tersisa 3 kartu
+            yang PASTI berisi kartumu.
           </p>
         </header>
 
@@ -412,7 +423,9 @@ export default function Home() {
                   </CardTitle>
                   <div className="flex gap-2">
                     <Badge variant="outline" className="border-amber-500/40 text-amber-300">
-                      N = {TRICK_SIZE} kartu
+                      {phase === 'reveal-selection' || phase === 'memorize' || phase === 'shuffling'
+                        ? `${FULL_DECK_SIZE} kartu`
+                        : `${TRICK_SIZE} kartu`}
                     </Badge>
                     <Badge variant="outline" className="border-rose-500/40 text-rose-300">
                       K = {PILE_COUNT} tumpukan
@@ -426,9 +439,11 @@ export default function Home() {
               <CardContent>
                 <GameStage
                   phase={phase}
+                  shuffledDeck={shuffledDeck}
                   workingDeck={workingDeck}
                   selectedCard={selectedCard}
                   piles={piles}
+                  currentAskPile={currentAskPile}
                   pickedPile={pickedPile}
                   round={round}
                   finalThree={finalThree}
@@ -436,8 +451,8 @@ export default function Home() {
                   autoReveal={autoReveal}
                   onStart={startTrick}
                   onChooseCard={chooseCard}
-                  onDeal={startDealing}
-                  onPickPile={pickPile}
+                  onTrikProper={startTrikProper}
+                  onAnswer={answerPile}
                   onTriggerReveal={triggerReveal}
                   onReset={reset}
                 />
@@ -459,7 +474,8 @@ export default function Home() {
                   title="1. Sistem Deterministik"
                   body={
                     <>
-                      Hasil akhir <span className="text-amber-300">100% terprediksi</span> karena aturan matematis mengikat posisi setiap kartu sejak awal.
+                      Hasil akhir <span className="text-amber-300">100% terprediksi</span> karena aturan matematis mengikat
+                      posisi kartu sejak awal. Tanpa unsur keberuntungan.
                     </>
                   }
                 />
@@ -469,15 +485,16 @@ export default function Home() {
                     <>
                       <code className="text-emerald-300">f(x) = (a·x + b) mod 27</code>
                       <br />
-                      Setiap deal + pickup = satu iterasi fungsi linear pada indeks kartu.
+                      Setiap ronde pembagian = satu iterasi fungsi linear pada indeks kartu.
                     </>
                   }
                 />
                 <MathBlock
-                  title="3. Konvergensi"
+                  title="3. Konvergensi 3²"
                   body={
                     <>
-                      Setelah <span className="text-amber-300">3 iterasi</span> (karena 27 = 3³), posisi kartu mengecil ke titik tetap. Penggunaan pile-tengah memaksa kartu ke indeks 13.
+                      Mulai dari <span className="text-amber-300">27 kartu</span> (dipilih sistem dari 52). Ronde 1 →
+                      9 kartu. Ronde 2 → <span className="text-amber-300">3 kartu</span> tersisa.
                     </>
                   }
                 />
@@ -485,34 +502,52 @@ export default function Home() {
                   title="4. Reduksi Himpunan"
                   body={
                     <>
-                      52 → 27 → 9 → 3 kartu. Himpunan sample space mengecil secara eksponensial hingga tersisa <span className="text-amber-300">3 elemen</span> yang pasti memuat kartumu.
+                      52 → 27 → 9 → 3 kartu. Himpunan sample space mengecil secara eksponensial hingga tersisa{' '}
+                      <span className="text-amber-300">3 elemen</span> yang pasti memuat kartumu.
+                    </>
+                  }
+                />
+                <MathBlock
+                  title="5. Ya/Tidak = Pencarian"
+                  body={
+                    <>
+                      Setiap pertanyaan Ya/Tidak memaksa sistem mengambil <em>tumpukan terpilih</em> sebagai himpunan
+                      baru. Ini <span className="text-emerald-300">pemetaan injektif</span> yang konvergen.
                     </>
                   }
                 />
                 <div className="mt-3 pt-3 border-t border-slate-700">
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="w-full border-slate-600 text-slate-300 hover:bg-slate-800">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full border-slate-600 text-slate-300 hover:bg-slate-800"
+                      >
                         <HelpCircle className="w-3 h-3 mr-1.5" /> Cara Kerja Trik
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="bg-slate-900 border-slate-700 text-slate-100 max-w-lg">
                       <DialogHeader>
                         <DialogTitle className="text-amber-300">Mengapa Trik Ini Selalu Berhasil?</DialogTitle>
-                        <DialogDescription className="text-slate-400">
-                          Penjelasan matematis singkat
-                        </DialogDescription>
+                        <DialogDescription className="text-slate-400">Penjelasan matematis singkat</DialogDescription>
                       </DialogHeader>
                       <div className="space-y-3 text-sm text-slate-300">
                         <p>
-                          Trik ini menggunakan <strong className="text-amber-300">27 kartu</strong> yang dibagi menjadi{' '}
-                          <strong className="text-amber-300">3 tumpukan @ 9 kartu</strong>. Setiap kali kamu menyebutkan tumpukan mana yang berisi kartumu, kartu itu dipindahkan ke posisi <em>tengah</em> tumpukan akhir.
+                          Kamu memilih 1 kartu dari <strong className="text-amber-300">52 kartu</strong>. Sistem lalu
+                          mengambil <strong className="text-amber-300">27 kartu</strong> dari deck (termasuk kartumu) —
+                          angka 27 dipilih karena <code className="text-emerald-300">27 = 3³</code>.
                         </p>
                         <p>
-                          Karena 27 = 3³, setelah <strong className="text-amber-300">3 ronde</strong> pembagian, posisi kartumu konvergen ke <code className="text-emerald-300">indeks 13</code> (tengah absolut). Dengan demikian, dalam 3 kartu terakhir yang tersisa, kartu kamu PASTI ada di antaranya.
+                          Sistem membagi 27 kartu ke <strong className="text-amber-300">3 tumpukan @ 9 kartu</strong>{' '}
+                          lalu bertanya "Apakah kartumu di tumpukan X?" untuk masing-masing tumpukan. Saat kamu menjawab{' '}
+                          <em>Ya</em>, sistem hanya mengambil tumpukan itu untuk ronde berikutnya.
                         </p>
                         <p>
-                          Ini bukan sihir — ini <strong className="text-emerald-300">Sistem Deterministik</strong>. Tidak ada ruang untuk keberuntungan, karena pemetaan linear pada himpunan terbatas selalu menemukan titik tetap.
+                          Setelah <strong className="text-amber-300">2 ronde</strong> (27 → 9 → 3), tersisa 3 kartu
+                          yang PASTI berisi kartumu. Bukan sihir — ini <strong className="text-emerald-300">Sistem
+                          Deterministik</strong>: pemetaan linear pada himpunan terbatas selalu konvergen ke titik
+                          tetap.
                         </p>
                       </div>
                     </DialogContent>
@@ -525,7 +560,8 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="mt-8 text-center text-xs text-slate-500 pb-4">
-          Dibuat untuk demonstrasi algoritma deterministik · f(x) = (a·x + b) mod N · Trik klasik "27-Card Trick"
+          Dibuat untuk demonstrasi algoritma deterministik · f(x) = (a·x + b) mod N · Variasi "27-Card Trick" dengan 52 kartu
+          awal
         </footer>
       </main>
     </div>
@@ -545,9 +581,11 @@ function MathBlock({ title, body }: { title: string; body: React.ReactNode }) {
 // ===== Sub-komponen: Game stage =====
 interface GameStageProps {
   phase: GamePhase
+  shuffledDeck: PokerCard[]
   workingDeck: PokerCard[]
   selectedCard: PokerCard | null
   piles: PokerCard[][]
+  currentAskPile: number
   pickedPile: number | null
   round: number
   finalThree: PokerCard[]
@@ -555,17 +593,19 @@ interface GameStageProps {
   autoReveal: boolean
   onStart: () => void
   onChooseCard: (card: PokerCard) => void
-  onDeal: () => void
-  onPickPile: (idx: number) => void
+  onTrikProper: () => void
+  onAnswer: (yes: boolean) => void
   onTriggerReveal: () => void
   onReset: () => void
 }
 
 function GameStage({
   phase,
+  shuffledDeck,
   workingDeck,
   selectedCard,
   piles,
+  currentAskPile,
   pickedPile,
   round,
   finalThree,
@@ -573,8 +613,8 @@ function GameStage({
   autoReveal,
   onStart,
   onChooseCard,
-  onDeal,
-  onPickPile,
+  onTrikProper,
+  onAnswer,
   onTriggerReveal,
   onReset,
 }: GameStageProps) {
@@ -602,9 +642,9 @@ function GameStage({
         </motion.div>
         <h2 className="text-2xl sm:text-3xl font-bold mb-3 text-white">Sulap Kartu Deterministik</h2>
         <p className="text-slate-400 max-w-md mb-8 text-sm sm:text-base">
-          Pilih satu kartu dari tumpukan acak. Sistem akan membagi-bagi kartu sebanyak 3 ronde, dan kartumu
-          <span className="text-amber-400 font-semibold"> dijamin 100% </span>
-          muncul di antara 3 kartu terakhir — tanpa trik tangan, murni algoritma.
+          Pilih satu kartu dari <span className="text-amber-400 font-semibold">52 kartu</span> acak. Sistem yang akan
+          membagi-bagi dan bertanya "Apakah kartumu di tumpukan ini?" — sampai tersisa 3 kartu yang dijamin berisi
+          kartumu, 100% tanpa keberuntungan.
         </p>
         <Button
           onClick={onStart}
@@ -629,28 +669,28 @@ function GameStage({
           <RotateCw className="w-12 h-12 text-amber-400" />
         </motion.div>
         <p className="text-slate-300 text-lg font-medium">Mengocok 52 kartu...</p>
-        <p className="text-slate-500 text-xs mt-1">Mengambil 27 kartu pertama untuk trik</p>
+        <p className="text-slate-500 text-xs mt-1">Acak seluruh deck poker standar</p>
       </div>
     )
   }
 
-  // ===== Phase: REVEAL-SELECTION (user pilih kartu) =====
+  // ===== Phase: REVEAL-SELECTION (52 kartu face-up, user pilih) =====
   if (phase === 'reveal-selection') {
     return (
       <div className="space-y-4">
         <div className="text-center">
-          <h3 className="text-lg font-semibold text-amber-300 mb-1">Pilih Salah Satu Kartu</h3>
+          <h3 className="text-lg font-semibold text-amber-300 mb-1">Pilih Salah Satu Kartu dari 52</h3>
           <p className="text-slate-400 text-xs">
-            Klik salah satu kartu di bawah. Ingat baik-baik kartu yang kamu pilih. (Jangan khawatir, kartunya acak semua)
+            Klik salah satu kartu di bawah. Ingat baik-baik kartu yang kamu pilih.
           </p>
         </div>
-        <div className="grid grid-cols-9 sm:grid-cols-9 gap-1.5 justify-items-center max-w-2xl mx-auto">
-          {workingDeck.map((card, i) => (
+        <div className="grid grid-cols-9 sm:grid-cols-13 gap-1.5 justify-items-center max-w-3xl mx-auto">
+          {shuffledDeck.map((card, i) => (
             <motion.div
               key={card.id}
               initial={{ opacity: 0, y: -20, rotateZ: -10 }}
               animate={{ opacity: 1, y: 0, rotateZ: 0 }}
-              transition={{ delay: i * 0.02, duration: 0.3 }}
+              transition={{ delay: i * 0.015, duration: 0.25 }}
             >
               <MiniCard card={card} size="sm" onClick={() => onChooseCard(card)} />
             </motion.div>
@@ -666,7 +706,9 @@ function GameStage({
       <div className="flex flex-col items-center justify-center py-8 space-y-6">
         <div className="text-center">
           <h3 className="text-lg font-semibold text-amber-300">Hafalkan Kartumu</h3>
-          <p className="text-slate-400 text-xs">Ini kartu yang kamu pilih. Klik "Mulai Bagi" untuk lanjut.</p>
+          <p className="text-slate-400 text-xs">
+            Ini kartu yang kamu pilih. Klik "Mulai Trik" untuk menyerahkan ke sistem.
+          </p>
         </div>
         <motion.div
           initial={{ scale: 0.5, opacity: 0, rotateY: 180 }}
@@ -681,25 +723,57 @@ function GameStage({
           </p>
         </div>
         <Button
-          onClick={onDeal}
+          onClick={onTrikProper}
           size="lg"
           className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-semibold"
         >
-          <Layers className="w-4 h-4 mr-2" /> Mulai Bagi Kartu
+          <Hand className="w-4 h-4 mr-2" /> Serahkan ke Sistem
         </Button>
       </div>
     )
   }
 
-  // ===== Phase: DEALING (animasi bagi ke 3 piles) =====
+  // ===== Phase: TRICK-PREP (sistem ambil 27 kartu) =====
+  if (phase === 'trick-prep') {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 space-y-5">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+        >
+          <Sparkles className="w-10 h-10 text-amber-400" />
+        </motion.div>
+        <h3 className="text-lg font-semibold text-amber-300">Sistem Mengambil 27 Kartu...</h3>
+        <p className="text-slate-400 text-xs max-w-md text-center">
+          Sistem mengambil <span className="text-amber-300 font-semibold">27 kartu</span> dari deck (termasuk kartumu) untuk
+          trik ini. Angka 27 dipilih karena <code className="text-emerald-300">27 = 3³</code> supaya converge rapi ke 3
+          kartu.
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-xl">
+          {workingDeck.map((card, i) => (
+            <motion.div
+              key={card.id}
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: i * 0.04, duration: 0.3 }}
+            >
+              <MiniCard card={card} size="sm" faceDown highlight={card.id === selectedCard?.id} />
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // ===== Phase: DEALING (sistem bagi ke 3 tumpukan) =====
   if (phase === 'dealing') {
     return (
       <div className="space-y-4">
         <div className="text-center">
           <h3 className="text-lg font-semibold text-amber-300">
-            Ronde {round}/{ROUNDS} — Membagi ke 3 Tumpukan
+            Ronde {round}/{ROUNDS} — Sistem Membagi ke 3 Tumpukan
           </h3>
-          <p className="text-slate-400 text-xs">Mendistribusikan {TRICK_SIZE} kartu ke {PILE_COUNT} tumpukan...</p>
+          <p className="text-slate-400 text-xs">Mendistribusikan {round === 1 ? TRICK_SIZE : 9} kartu ke {PILE_COUNT} tumpukan...</p>
         </div>
         <div className="grid grid-cols-3 gap-4 sm:gap-6 max-w-3xl mx-auto">
           {piles.map((pile, i) => (
@@ -729,92 +803,147 @@ function GameStage({
     )
   }
 
-  // ===== Phase: AWAIT-PICK (user tunjuk pile mana berisi kartunya) =====
-  if (phase === 'await-pick') {
+  // ===== Phase: ASK-PILE (sistem nanya Ya/Tidak) =====
+  if (phase === 'ask-pile') {
+    const isLastPile = currentAskPile === PILE_COUNT - 1
     return (
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div className="text-center">
           <h3 className="text-lg font-semibold text-amber-300">
-            Ronde {round}/{ROUNDS} — Di Tumpukan Mana Kartumu?
+            Ronde {round}/{ROUNDS} — Pertanyaan untuk Tumpukan {currentAskPile + 1}
           </h3>
           <p className="text-slate-400 text-xs">
-            Kartumu: <span className="text-amber-300 font-bold">{selectedCard?.label}</span> · Klik tumpukan yang berisi kartu kamu
+            Kartumu: <span className="text-amber-300 font-bold">{selectedCard?.label}</span>
           </p>
         </div>
+
+        {/* Banner pertanyaan */}
+        <motion.div
+          key={currentAskPile}
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-amber-500/20 to-rose-500/20 border border-amber-500/40 rounded-xl p-4 text-center max-w-2xl mx-auto"
+        >
+          <p className="text-white text-base sm:text-lg font-semibold mb-1">
+            Apakah kartumu ada di <span className="text-amber-300">Tumpukan {currentAskPile + 1}</span>?
+          </p>
+          <p className="text-slate-400 text-xs">
+            {isLastPile
+              ? 'Tumpukan terakhir — kartumu pasti di sini kalau bukan di tumpukan lain'
+              : 'Lihat tumpukan yang disorot. Klik Ya kalau kartumu ada di sana, Tidak kalau tidak.'}
+          </p>
+        </motion.div>
+
+        {/* 3 tumpukan, tumpukan currentAskPile di-highlight */}
         <div className="grid grid-cols-3 gap-4 sm:gap-6 max-w-3xl mx-auto">
-          {piles.map((pile, i) => (
+          {piles.map((pile, i) => {
+            const isCurrent = i === currentAskPile
+            const isPast = i < currentAskPile
+            return (
+              <motion.div
+                key={i}
+                animate={isCurrent ? { scale: 1.05 } : { scale: 1 }}
+                className={`flex flex-col items-center rounded-xl p-2 transition-all
+                  ${isCurrent ? 'ring-4 ring-amber-400/60 bg-amber-500/5' : ''}
+                  ${isPast ? 'opacity-40' : ''}`}
+              >
+                <div className="text-xs text-slate-400 mb-2">
+                  Tumpukan {i + 1}
+                  {isPast && ' ✓ Tidak'}
+                  {isCurrent && ' ← sedang ditanya'}
+                </div>
+                <div className="relative h-44 w-full flex items-end justify-center">
+                  {pile.map((card, j) => (
+                    <div
+                      key={card.id}
+                      className="absolute"
+                      style={{
+                        transform: `translateY(${-j * 2}px) translateX(${j * 0.5}px)`,
+                        zIndex: j,
+                      }}
+                    >
+                      <MiniCard card={card} size="sm" />
+                    </div>
+                  ))}
+                </div>
+                <div className="text-xs text-slate-500 mt-1">{pile.length} kartu</div>
+              </motion.div>
+            )
+          })}
+        </div>
+
+        {/* Tombol Ya / Tidak */}
+        <div className="flex justify-center gap-3">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => onAnswer(true)}
+            className="px-6 sm:px-8 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold text-base sm:text-lg shadow-lg shadow-emerald-500/30 hover:from-emerald-400 hover:to-emerald-500 transition-all flex items-center gap-2"
+          >
+            <Check className="w-5 h-5" /> Ya
+          </motion.button>
+          {!isLastPile && (
             <motion.button
-              key={i}
-              whileHover={{ scale: 1.04, y: -4 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => onPickPile(i)}
-              className="flex flex-col items-center group cursor-pointer"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => onAnswer(false)}
+              className="px-6 sm:px-8 py-3 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 text-white font-bold text-base sm:text-lg shadow-lg shadow-rose-500/30 hover:from-rose-400 hover:to-rose-500 transition-all flex items-center gap-2"
             >
-              <div className="text-xs text-slate-400 mb-2 group-hover:text-amber-300 transition-colors">
-                Tumpukan {i + 1}
-              </div>
-              <div className="relative h-44 w-full flex items-end justify-center p-2 rounded-lg border-2 border-transparent group-hover:border-amber-500/50 group-hover:bg-amber-500/5 transition-all">
-                {pile.map((card, j) => (
-                  <div
-                    key={card.id}
-                    className="absolute"
-                    style={{
-                      transform: `translateY(${-j * 2}px) translateX(${j * 0.5}px)`,
-                      zIndex: j,
-                    }}
-                  >
-                    <MiniCard card={card} size="sm" />
-                  </div>
-                ))}
-              </div>
-              <div className="text-xs text-slate-500 mt-1">{pile.length} kartu</div>
-              <div className="text-[10px] text-slate-600 mt-0.5">↑ klik</div>
+              <X className="w-5 h-5" /> Tidak
             </motion.button>
-          ))}
+          )}
         </div>
       </div>
     )
   }
 
-  // ===== Phase: COLLECTING =====
+  // ===== Phase: COLLECTING (animasi pengumpulan) =====
   if (phase === 'collecting' && pickedPile !== null) {
     return (
       <div className="space-y-4">
         <div className="text-center">
-          <h3 className="text-lg font-semibold text-amber-300">Mengumpulkan Tumpukan...</h3>
+          <h3 className="text-lg font-semibold text-amber-300">Mengambil Tumpukan {pickedPile + 1}</h3>
           <p className="text-slate-400 text-xs">
-            Tumpukan {pickedPile + 1} (yang berisi kartumu) ditempatkan di <span className="text-amber-300">tengah</span>
+            Sistem menyimpan tumpukan ini (yang berisi kartumu) untuk ronde berikutnya
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-4 sm:gap-6 max-w-3xl mx-auto opacity-50">
-          {piles.map((pile, i) => (
-            <div
-              key={i}
-              className={`flex flex-col items-center ${i === pickedPile ? 'opacity-100 ring-2 ring-amber-500 rounded-lg p-2' : 'opacity-30'}`}
-            >
-              <div className="text-xs text-slate-500 mb-2">Tumpukan {i + 1}{i === pickedPile ? ' ★' : ''}</div>
-              <div className="relative h-44 w-full flex items-end justify-center">
-                {pile.map((card, j) => (
-                  <div
-                    key={card.id}
-                    className="absolute"
-                    style={{
-                      transform: `translateY(${-j * 2}px) translateX(${j * 0.5}px)`,
-                      zIndex: j,
-                    }}
-                  >
-                    <MiniCard card={card} size="sm" />
-                  </div>
-                ))}
+        <div className="grid grid-cols-3 gap-4 sm:gap-6 max-w-3xl mx-auto">
+          {piles.map((pile, i) => {
+            const isPicked = i === pickedPile
+            return (
+              <div
+                key={i}
+                className={`flex flex-col items-center rounded-xl p-2 transition-all
+                  ${isPicked ? 'ring-4 ring-emerald-400/60 bg-emerald-500/5 scale-105' : 'opacity-25 grayscale'}`}
+              >
+                <div className="text-xs text-slate-400 mb-2">
+                  Tumpukan {i + 1}
+                  {isPicked && ' ★ dipilih'}
+                </div>
+                <div className="relative h-44 w-full flex items-end justify-center">
+                  {pile.map((card, j) => (
+                    <div
+                      key={card.id}
+                      className="absolute"
+                      style={{
+                        transform: `translateY(${-j * 2}px) translateX(${j * 0.5}px)`,
+                        zIndex: j,
+                      }}
+                    >
+                      <MiniCard card={card} size="sm" />
+                    </div>
+                  ))}
+                </div>
+                <div className="text-xs text-slate-500 mt-1">{pile.length} kartu</div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     )
   }
 
-  // ===== Phase: FINAL-REVEAL (3 kartu terakhir) =====
+  // ===== Phase: FINAL-REVEAL (3 kartu face-down) =====
   if (phase === 'final-reveal' && finalThree.length === 3) {
     return (
       <div className="space-y-6">
@@ -875,7 +1004,7 @@ function GameStage({
     )
   }
 
-  // ===== Phase: TRICK-REVEAL (kartu user di-reveal sebagai pemenang) =====
+  // ===== Phase: TRICK-REVEAL (sukses) =====
   if (phase === 'trick-reveal' && selectedCard) {
     return (
       <div className="flex flex-col items-center justify-center py-8 space-y-6 text-center">
@@ -890,8 +1019,8 @@ function GameStage({
           Trik Berhasil!
         </h2>
         <p className="text-slate-300 text-sm sm:text-base max-w-md">
-          Kartu pilihanmu <span className="text-amber-300 font-bold text-lg">{selectedCard.label}</span>{' '}
-          ada di antara 3 kartu terakhir — seperti yang diprediksi algoritma. Bukan kebetulan, ini deterministik.
+          Kartu pilihanmu <span className="text-amber-300 font-bold text-lg">{selectedCard.label}</span> ada di antara 3
+          kartu terakhir — seperti yang diprediksi algoritma. Bukan kebetulan, ini deterministik.
         </p>
         <div className="flex flex-col sm:flex-row gap-3">
           <Button
