@@ -3,6 +3,13 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { MathExplanation } from '@/components/math/MathExplanation'
 import { ContextualMath } from '@/components/math/ContextualMath'
 import type { GamePhase, PokerCard } from '@/components/math/types'
@@ -123,6 +130,7 @@ export default function Home() {
   const [finalThree, setFinalThree] = useState<PokerCard[]>([])
   const [revealIndex, setRevealIndex] = useState(0)
   const [autoReveal, setAutoReveal] = useState(false)
+  const [inspectPileIdx, setInspectPileIdx] = useState<number | null>(null)
 
   const startTrick = useCallback(() => {
     setPhase('shuffling')
@@ -136,6 +144,7 @@ export default function Home() {
     setFinalThree([])
     setRevealIndex(0)
     setAutoReveal(false)
+    setInspectPileIdx(null)
     const shuffled = shuffle(fullDeck)
     setShuffledDeck(shuffled)
     setTimeout(() => setPhase('reveal-selection'), 900)
@@ -238,6 +247,7 @@ export default function Home() {
     setFinalThree([])
     setRevealIndex(0)
     setAutoReveal(false)
+    setInspectPileIdx(null)
   }, [])
 
   const progress = useMemo(() => {
@@ -340,6 +350,7 @@ export default function Home() {
                   onAnswer={answerPile}
                   onTriggerReveal={triggerReveal}
                   onReset={reset}
+                  onInspectPile={setInspectPileIdx}
                 />
               </div>
 
@@ -366,6 +377,63 @@ export default function Home() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Inspect pile modal */}
+      <Dialog
+        open={inspectPileIdx !== null}
+        onOpenChange={(open) => { if (!open) setInspectPileIdx(null) }}
+      >
+        <DialogContent className="bg-white border-2 border-[#0a0a0a] max-w-2xl p-0">
+          {inspectPileIdx !== null && piles[inspectPileIdx] && (
+            <>
+              <DialogHeader className="p-5 border-b border-[#0a0a0a]">
+                <DialogTitle className="font-display font-bold text-xl text-[#0a0a0a]">
+                  Tumpukan P{inspectPileIdx + 1}
+                </DialogTitle>
+                <DialogDescription className="font-mono text-xs text-[#737373]">
+                  {piles[inspectPileIdx].length} kartu · ronde {round}/{ROUNDS}
+                  {selectedCard && piles[inspectPileIdx].some(c => c.id === selectedCard.id) && (
+                    <span className="ml-2 text-[#c41e3a] font-bold">
+                      · kartumu ada di sini
+                    </span>
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="p-5 max-h-[60vh] overflow-y-auto">
+                <div className="grid grid-cols-5 sm:grid-cols-7 gap-2 justify-items-center">
+                  {piles[inspectPileIdx].map((card, i) => (
+                    <motion.div
+                      key={card.id}
+                      initial={{ opacity: 0, scale: 0.7 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: i * 0.03, duration: 0.2 }}
+                    >
+                      <MiniCard
+                        card={card}
+                        size="sm"
+                        highlight={selectedCard?.id === card.id}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+                {selectedCard && piles[inspectPileIdx].some(c => c.id === selectedCard.id) && (
+                  <p className="font-mono text-xs text-[#c41e3a] mt-4 text-center font-bold">
+                    ✓ {selectedCard.label} ada di tumpukan ini
+                  </p>
+                )}
+              </div>
+              <div className="p-4 border-t border-[#e5e5e5] flex justify-end">
+                <button
+                  onClick={() => setInspectPileIdx(null)}
+                  className="font-mono text-xs font-bold tracking-widest bg-[#0a0a0a] text-white px-5 py-2 hover:bg-[#c41e3a] transition-colors"
+                >
+                  TUTUP
+                </button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -389,13 +457,14 @@ interface GameStageProps {
   onAnswer: (yes: boolean) => void
   onTriggerReveal: () => void
   onReset: () => void
+  onInspectPile: (idx: number) => void
 }
 
 function GameStage(props: GameStageProps) {
   const {
     phase, shuffledDeck, workingDeck, selectedCard, piles, currentAskPile,
     pickedPile, round, finalThree, revealIndex, autoReveal,
-    onStart, onChooseCard, onTrikProper, onAnswer, onTriggerReveal, onReset,
+    onStart, onChooseCard, onTrikProper, onAnswer, onTriggerReveal, onReset, onInspectPile,
   } = props
 
   if (phase === 'intro') {
@@ -528,16 +597,23 @@ function GameStage(props: GameStageProps) {
         <div className="font-mono text-[10px] tracking-widest text-[#737373] mb-3">
           05 / DEAL · R{round}
         </div>
-        <h3 className="font-display font-bold text-2xl sm:text-3xl mb-5">
+        <h3 className="font-display font-bold text-2xl sm:text-3xl mb-2">
           Sistem membagi ke 3 tumpukan.
         </h3>
+        <p className="font-body text-xs text-[#737373] mb-5">
+          Klik tumpukan untuk lihat isinya.
+        </p>
         <div className="grid grid-cols-3 gap-4 sm:gap-8">
           {piles.map((pile, i) => (
-            <div key={i} className="flex flex-col items-center">
-              <div className="font-mono text-[10px] text-[#737373] tracking-widest mb-2">
+            <button
+              key={i}
+              onClick={() => onInspectPile(i)}
+              className="flex flex-col items-center group cursor-pointer"
+            >
+              <div className="font-mono text-[10px] text-[#737373] tracking-widest mb-2 group-hover:text-[#c41e3a] transition-colors">
                 P{i + 1} · {pile.length}
               </div>
-              <div className="relative h-44 w-full flex items-end justify-center">
+              <div className="relative h-44 w-full flex items-end justify-center border border-transparent group-hover:border-[#c41e3a] transition-colors">
                 <AnimatePresence>
                   {pile.map((card, j) => (
                     <motion.div
@@ -553,7 +629,10 @@ function GameStage(props: GameStageProps) {
                   ))}
                 </AnimatePresence>
               </div>
-            </div>
+              <div className="font-mono text-[10px] text-[#737373] mt-2 group-hover:text-[#c41e3a] transition-colors">
+                ↗ inspect
+              </div>
+            </button>
           ))}
         </div>
       </section>
@@ -570,8 +649,9 @@ function GameStage(props: GameStageProps) {
         <h3 className="font-display font-bold text-2xl sm:text-3xl mb-2">
           Apakah kartumu di P{currentAskPile + 1}?
         </h3>
-        <p className="font-mono text-xs text-[#737373] mb-5">
+        <p className="font-mono text-xs text-[#737373] mb-3">
           c* = <span className="text-[#c41e3a] font-bold">{selectedCard?.label}</span>
+          <span className="ml-3 text-[#737373]">klik tumpukan untuk lihat isi</span>
         </p>
 
         <div className="grid grid-cols-3 gap-4 sm:gap-8 mb-6">
@@ -579,10 +659,11 @@ function GameStage(props: GameStageProps) {
             const isCurrent = i === currentAskPile
             const isPast = i < currentAskPile
             return (
-              <motion.div
+              <motion.button
                 key={i}
+                onClick={() => onInspectPile(i)}
                 animate={isCurrent ? { scale: 1.04 } : { scale: 1 }}
-                className={`flex flex-col items-center p-2 border ${isCurrent ? 'border-[#c41e3a] bg-[#fafaf7]' : isPast ? 'border-[#e5e5e5] opacity-50' : 'border-transparent'}`}
+                className={`flex flex-col items-center p-2 border cursor-pointer group ${isCurrent ? 'border-[#c41e3a] bg-[#fafaf7]' : isPast ? 'border-[#e5e5e5] opacity-50 hover:opacity-80' : 'border-[#0a0a0a] hover:border-[#c41e3a]'}`}
               >
                 <div className="font-mono text-[10px] text-[#737373] tracking-widest mb-2">
                   P{i + 1} · {pile.length}
@@ -603,7 +684,10 @@ function GameStage(props: GameStageProps) {
                     </div>
                   ))}
                 </div>
-              </motion.div>
+                <div className="font-mono text-[10px] text-[#737373] mt-2 group-hover:text-[#c41e3a] transition-colors">
+                  ↗ inspect
+                </div>
+              </motion.button>
             )
           })}
         </div>
