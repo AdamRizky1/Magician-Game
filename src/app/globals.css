@@ -3,242 +3,156 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ===== Design Tokens: Vintage Magic Treatise =====
-   Inspired by 19th-century magic books, parchment paper,
-   letterpress ink, playing card red & antique gold.
-   No gradients. No glassmorphism. No AI-slop.
+/* ===== Engineering Paper / Swiss Brutalist =====
+   Restraint as design philosophy.
+   No gradients. No borders (except hairline rules).
+   No shadows. No decorations. No ornaments.
+   Just typography + white space + one accent color.
 */
 @theme inline {
-  /* Typography */
   --font-display: var(--font-display);
   --font-body: var(--font-body);
   --font-mono: var(--font-mono);
 
-  /* Color tokens */
-  --color-paper: #efe6d0;
-  --color-paper-dark: #e6dcc4;
-  --color-paper-edge: #d4c4a3;
-  --color-ink: #1a1410;
-  --color-ink-soft: #2c241b;
-  --color-ink-muted: #6e5f4c;
-  --color-burgundy: #722637;
-  --color-burgundy-deep: #5a1c2a;
-  --color-gold: #8a6b1f;
-  --color-gold-bright: #b8893d;
+  /* Single-palette tokens */
+  --color-bg: #ffffff;
+  --color-bg-soft: #f5f5f4;
+  --color-ink: #0a0a0a;
+  --color-ink-soft: #404040;
+  --color-ink-muted: #737373;
+  --color-rule: #e5e5e5;
+  --color-accent: #c41e3a;
 
-  /* shadcn compat (we keep some, override others) */
-  --color-background: var(--color-paper);
+  /* shadcn compatibility (override) */
+  --color-background: var(--color-bg);
   --color-foreground: var(--color-ink);
-  --color-card: #f5ecd5;
+  --color-card: var(--color-bg);
   --color-card-foreground: var(--color-ink);
-  --color-popover: var(--color-paper);
+  --color-popover: var(--color-bg);
   --color-popover-foreground: var(--color-ink);
-  --color-primary: var(--color-burgundy);
-  --color-primary-foreground: #f5ecd5;
-  --color-secondary: var(--color-paper-dark);
+  --color-primary: var(--color-ink);
+  --color-primary-foreground: var(--color-bg);
+  --color-secondary: var(--color-bg-soft);
   --color-secondary-foreground: var(--color-ink);
-  --color-muted: var(--color-paper-dark);
+  --color-muted: var(--color-bg-soft);
   --color-muted-foreground: var(--color-ink-muted);
-  --color-accent: var(--color-gold);
-  --color-accent-foreground: #fff;
-  --color-destructive: var(--color-burgundy-deep);
-  --color-border: var(--color-paper-edge);
-  --color-input: var(--color-paper-edge);
-  --color-ring: var(--color-burgundy);
+  --color-accent-foreground: #ffffff;
+  --color-destructive: var(--color-accent);
+  --color-border: var(--color-rule);
+  --color-input: var(--color-rule);
+  --color-ring: var(--color-ink);
 
-  /* Chart colors (legacy shadcn) */
-  --color-chart-1: var(--color-burgundy);
-  --color-chart-2: var(--color-gold);
-  --color-chart-3: var(--color-ink);
-  --color-chart-4: var(--color-ink-muted);
-  --color-chart-5: var(--color-paper-edge);
+  --color-chart-1: var(--color-accent);
+  --color-chart-2: var(--color-ink);
+  --color-chart-3: var(--color-ink-muted);
+  --color-chart-4: var(--color-rule);
+  --color-chart-5: var(--color-bg-soft);
 
   --radius: 0;
   --radius-sm: 0;
-  --radius-md: 2px;
-  --radius-lg: 2px;
-  --radius-xl: 4px;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
 
-  /* Sidebar compat */
-  --color-sidebar: var(--color-paper);
+  --color-sidebar: var(--color-bg);
   --color-sidebar-foreground: var(--color-ink);
-  --color-sidebar-primary: var(--color-burgundy);
-  --color-sidebar-primary-foreground: #f5ecd5;
-  --color-sidebar-accent: var(--color-paper-dark);
+  --color-sidebar-primary: var(--color-ink);
+  --color-sidebar-primary-foreground: var(--color-bg);
+  --color-sidebar-accent: var(--color-bg-soft);
   --color-sidebar-accent-foreground: var(--color-ink);
-  --color-sidebar-border: var(--color-paper-edge);
-  --color-sidebar-ring: var(--color-burgundy);
+  --color-sidebar-border: var(--color-rule);
+  --color-sidebar-ring: var(--color-ink);
 }
 
 :root {
-  /* shadcn compat (used by ui components we don't touch) */
-  --background: var(--color-paper);
+  --background: var(--color-bg);
   --foreground: var(--color-ink);
-  --card: #f5ecd5;
+  --card: var(--color-bg);
   --card-foreground: var(--color-ink);
-  --popover: var(--color-paper);
+  --popover: var(--color-bg);
   --popover-foreground: var(--color-ink);
-  --primary: var(--color-burgundy);
-  --primary-foreground: #f5ecd5;
-  --secondary: var(--color-paper-dark);
+  --primary: var(--color-ink);
+  --primary-foreground: var(--color-bg);
+  --secondary: var(--color-bg-soft);
   --secondary-foreground: var(--color-ink);
-  --muted: var(--color-paper-dark);
+  --muted: var(--color-bg-soft);
   --muted-foreground: var(--color-ink-muted);
-  --accent: var(--color-gold);
-  --accent-foreground: #fff;
-  --destructive: var(--color-burgundy-deep);
-  --border: var(--color-paper-edge);
-  --input: var(--color-paper-edge);
-  --ring: var(--color-burgundy);
+  --accent: var(--color-accent);
+  --accent-foreground: #ffffff;
+  --destructive: var(--color-accent);
+  --border: var(--color-rule);
+  --input: var(--color-rule);
+  --ring: var(--color-ink);
   --radius: 0;
 }
 
 .dark {
   --background: var(--color-ink);
-  --foreground: var(--color-paper);
-  /* keep dark mode usable but we don't switch automatically */
+  --foreground: var(--color-bg);
 }
 
 @layer base {
   * {
     @apply border-border;
+    border-width: 0;
   }
   html,
   body {
-    background-color: var(--color-paper);
+    background-color: var(--color-bg);
     color: var(--color-ink);
-    font-family: var(--font-body), Georgia, serif;
-    font-feature-settings: "kern", "liga", "calt";
+    font-family: var(--font-body), system-ui, sans-serif;
+    font-feature-settings: "kern", "liga", "ss01", "cv01", "cv02";
+    -webkit-font-smoothing: antialiased;
   }
 
-  /* Subtle paper texture */
-  body {
-    background-image:
-      radial-gradient(circle at 50% 0%, rgba(138, 107, 31, 0.04) 0%, transparent 60%),
-      radial-gradient(circle at 80% 80%, rgba(114, 38, 55, 0.03) 0%, transparent 50%);
-    background-attachment: fixed;
-  }
-
-  /* Selection */
   ::selection {
-    background-color: var(--color-burgundy);
-    color: var(--color-paper);
+    background-color: var(--color-accent);
+    color: #ffffff;
   }
 
-  /* Scrollbar */
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
-    background: var(--color-paper-dark);
+    background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--color-paper-edge);
-    border: 2px solid var(--color-paper-dark);
+    background: var(--color-rule);
   }
   ::-webkit-scrollbar-thumb:hover {
     background: var(--color-ink-muted);
   }
 }
 
-/* ===== Editorial typography utilities ===== */
+/* ===== Brutalist utilities ===== */
 @layer components {
   .font-display {
-    font-family: var(--font-display), Georgia, serif;
+    font-family: var(--font-display), system-ui, sans-serif;
+    letter-spacing: -0.02em;
   }
   .font-body {
-    font-family: var(--font-body), Georgia, serif;
+    font-family: var(--font-body), system-ui, sans-serif;
   }
   .font-mono {
+    font-family: var(--font-mono), ui-monospace, monospace;
+  }
+
+  /* Big section number (e.g., "01") */
+  .step-num {
     font-family: var(--font-mono), monospace;
-  }
-
-  /* Small caps for labels */
-  .smallcaps {
-    font-variant-caps: small-caps;
-    letter-spacing: 0.08em;
-    font-weight: 600;
-  }
-
-  /* Drop cap for opening paragraph */
-  .dropcap::first-letter {
-    font-family: var(--font-display), serif;
-    font-size: 3.6em;
-    line-height: 0.85;
-    float: left;
-    margin: 0.1em 0.12em -0.05em 0;
-    color: var(--color-burgundy);
-    font-weight: 900;
-  }
-
-  /* Double-rule divider */
-  .rule-double {
-    border-top: 3px double var(--color-paper-edge);
-    border-bottom: 1px solid var(--color-paper-edge);
-    height: 6px;
-    margin: 1.5rem 0;
-  }
-
-  /* Hairline divider */
-  .rule-hair {
-    border-top: 1px solid var(--color-paper-edge);
-    margin: 1rem 0;
-  }
-
-  /* Pull quote (hanging indent, italic serif) */
-  .pullquote {
-    font-family: var(--font-display), serif;
-    font-style: italic;
-    font-size: 1.4em;
-    line-height: 1.35;
-    color: var(--color-burgundy);
-    border-left: 3px solid var(--color-burgundy);
-    padding-left: 1.2em;
-    margin-left: -1.5em;
-  }
-
-  /* Marginalia — small footnote-style text in margin */
-  .marginalia {
-    font-size: 0.78em;
-    line-height: 1.5;
+    font-weight: 500;
     color: var(--color-ink-muted);
-    font-style: italic;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
   }
 
-  /* Ornamental rule with suits */
-  .ornament-suits {
-    text-align: center;
-    color: var(--color-burgundy);
-    letter-spacing: 1em;
-    font-size: 1.2em;
-    margin: 1.5em 0;
-  }
-
-  /* Numbered article heading */
-  .article-heading {
-    font-family: var(--font-display), serif;
-    font-weight: 900;
-    line-height: 1.05;
-    letter-spacing: -0.01em;
-  }
-
-  /* Reduce motion preferences */
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-    }
-  }
-
-  /* KaTeX — burgundy color for math symbols */
+  /* KaTeX inline tweak */
   .katex {
-    color: var(--color-ink);
+    font-size: 1em;
   }
-  .katex .mord {
-    color: inherit;
+  .katex-display {
+    margin: 0;
+    text-align: left;
   }
 }

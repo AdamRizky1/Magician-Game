@@ -4,32 +4,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { MathExplanation } from '@/components/math/MathExplanation'
-
-// ===== Tipe data =====
-type Suit = 'hearts' | 'diamonds' | 'clubs' | 'spades'
-type SuitColor = 'red' | 'black'
-
-interface PokerCard {
-  id: string
-  rank: string
-  rankValue: number
-  suit: Suit
-  color: SuitColor
-  label: string
-}
-
-type GamePhase =
-  | 'intro'
-  | 'shuffling'
-  | 'reveal-selection'
-  | 'memorize'
-  | 'trick-prep'
-  | 'dealing'
-  | 'ask-pile'
-  | 'collecting'
-  | 'final-reveal'
-  | 'trick-reveal'
-  | 'completed'
+import { ContextualMath } from '@/components/math/ContextualMath'
+import type { GamePhase, PokerCard } from '@/components/math/types'
 
 // ===== Konstanta =====
 const FULL_DECK_SIZE = 52
@@ -38,7 +14,7 @@ const PILE_COUNT = 3
 const ROUNDS = 2
 
 // ===== Util kartu =====
-const SUITS: { suit: Suit; symbol: string; color: SuitColor }[] = [
+const SUITS: { suit: PokerCard['suit']; symbol: string; color: PokerCard['color'] }[] = [
   { suit: 'hearts', symbol: '♥', color: 'red' },
   { suit: 'diamonds', symbol: '♦', color: 'red' },
   { suit: 'clubs', symbol: '♣', color: 'black' },
@@ -46,18 +22,10 @@ const SUITS: { suit: Suit; symbol: string; color: SuitColor }[] = [
 ]
 
 const RANKS: { rank: string; value: number }[] = [
-  { rank: 'A', value: 1 },
-  { rank: '2', value: 2 },
-  { rank: '3', value: 3 },
-  { rank: '4', value: 4 },
-  { rank: '5', value: 5 },
-  { rank: '6', value: 6 },
-  { rank: '7', value: 7 },
-  { rank: '8', value: 8 },
-  { rank: '9', value: 9 },
-  { rank: '10', value: 10 },
-  { rank: 'J', value: 11 },
-  { rank: 'Q', value: 12 },
+  { rank: 'A', value: 1 }, { rank: '2', value: 2 }, { rank: '3', value: 3 },
+  { rank: '4', value: 4 }, { rank: '5', value: 5 }, { rank: '6', value: 6 },
+  { rank: '7', value: 7 }, { rank: '8', value: 8 }, { rank: '9', value: 9 },
+  { rank: '10', value: 10 }, { rank: 'J', value: 11 }, { rank: 'Q', value: 12 },
   { rank: 'K', value: 13 },
 ]
 
@@ -87,7 +55,7 @@ function shuffle<T>(arr: T[]): T[] {
   return out
 }
 
-// ===== Playing card — letterpress style =====
+// ===== Playing card — brutalist minimal =====
 function MiniCard({
   card,
   faceDown = false,
@@ -111,71 +79,33 @@ function MiniCard({
     lg: 'w-20 h-28 text-2xl',
   }[size]
 
-  const base = `relative cursor-pointer select-none border-2 transition-all duration-150 ${dims} ${dim ? 'opacity-30' : ''}`
+  const base = `relative cursor-pointer select-none border transition-all duration-100 ${dims} ${dim ? 'opacity-30' : ''}`
 
   if (faceDown) {
     return (
       <div
         onClick={onClick}
-        className={`${base} bg-[#1a1410] border-[#1a1410] hover:border-[#722637]`}
-        style={{
-          backgroundImage:
-            'repeating-linear-gradient(45deg, transparent 0, transparent 4px, rgba(138,107,31,0.18) 4px, rgba(138,107,31,0.18) 5px)',
-        }}
-      >
-        <div className="absolute inset-0.5 border border-[#8a6b1f]/40 flex items-center justify-center">
-          <span className="text-[#8a6b1f]/60 text-base font-display">✦</span>
-        </div>
-      </div>
+        className={`${base} bg-[#0a0a0a] border-[#0a0a0a] hover:border-[#c41e3a]`}
+      />
     )
   }
 
-  if (!card) return <div className={`${dims} border-2 border-[#d4c4a3] bg-[#f5ecd5]`} />
+  if (!card) return <div className={`${dims} border border-[#e5e5e5] bg-white`} />
 
   const isRed = card.color === 'red'
-  const inkColor = isRed ? 'text-[#722637]' : 'text-[#1a1410]'
+  const inkColor = isRed ? 'text-[#c41e3a]' : 'text-[#0a0a0a]'
+  const borderColor = highlight ? 'border-[#c41e3a]' : selected ? 'border-[#0a0a0a] border-2' : 'border-[#0a0a0a]'
 
   return (
     <div
       onClick={onClick}
-      className={`${base} bg-[#f5ecd5] hover:bg-[#fff8e0] hover:-translate-y-0.5 flex flex-col items-center justify-center p-1
-        ${highlight ? 'border-[#722637] -translate-y-1' : ''}
-        ${selected ? 'border-[#8a6b1f]' : ''}
-        ${!highlight && !selected ? 'border-[#1a1410]' : ''}`}
+      className={`${base} bg-white hover:-translate-y-0.5 flex flex-col items-center justify-center p-1 ${borderColor}`}
     >
-      <span className={`font-display font-bold leading-none ${inkColor}`}>{card.rank}</span>
-      <span className={`text-base leading-none ${inkColor}`}>
+      <span className={`font-mono font-bold leading-none ${inkColor}`}>{card.rank}</span>
+      <span className={`text-sm leading-none ${inkColor}`}>
         {SUITS.find((s) => s.suit === card.suit)?.symbol}
       </span>
-      {size === 'lg' && (
-        <span className="text-[10px] mt-1 text-[#6e5f4c] smallcaps">{card.suit}</span>
-      )}
     </div>
-  )
-}
-
-// ===== Editorial ornaments =====
-function Ornament() {
-  return (
-    <div className="ornament-suits select-none" aria-hidden>
-      <span>♥</span>
-      <span>♦</span>
-      <span>♣</span>
-      <span>♠</span>
-    </div>
-  )
-}
-
-function RuleDouble() {
-  return <div className="rule-double" />
-}
-
-function ArticleHeading({ num, title }: { num: string; title: string }) {
-  return (
-    <h2 className="article-heading text-2xl sm:text-3xl mt-8 mb-3">
-      <span className="smallcaps text-[#722637] text-xs block mb-1">Artikel {num}</span>
-      <span>{title}</span>
-    </h2>
   )
 }
 
@@ -194,7 +124,6 @@ export default function Home() {
   const [revealIndex, setRevealIndex] = useState(0)
   const [autoReveal, setAutoReveal] = useState(false)
 
-  // ===== Start: kocok 52 kartu =====
   const startTrick = useCallback(() => {
     setPhase('shuffling')
     setRound(0)
@@ -207,26 +136,22 @@ export default function Home() {
     setFinalThree([])
     setRevealIndex(0)
     setAutoReveal(false)
-
     const shuffled = shuffle(fullDeck)
     setShuffledDeck(shuffled)
     setTimeout(() => setPhase('reveal-selection'), 900)
   }, [fullDeck])
 
-  // ===== User pilih kartu dari 52 =====
   const chooseCard = useCallback((card: PokerCard) => {
     setSelectedCard(card)
     setPhase('memorize')
   }, [])
 
-  // ===== Mulai ronde: bagi ke 3 tumpukan =====
   const startRound = useCallback((roundNum: number, deck: PokerCard[]) => {
     setPhase('dealing')
     setRound(roundNum)
     setPickedPile(null)
     setCurrentAskPile(0)
     setPiles([[], [], []])
-
     const newPiles: PokerCard[][] = [[], [], []]
     deck.forEach((card, idx) => {
       newPiles[idx % PILE_COUNT].push(card)
@@ -235,29 +160,24 @@ export default function Home() {
     setTimeout(() => setPhase('ask-pile'), 1500)
   }, [])
 
-  // ===== Mulai trik proper: sistem ambil 27 kartu =====
   const startTrikProper = useCallback(() => {
     if (!selectedCard) return
     setPhase('trick-prep')
-
     const remaining = fullDeck.filter((c) => c.id !== selectedCard.id)
     const random26 = shuffle(remaining).slice(0, TRICK_SIZE - 1)
     const trickDeck = shuffle([selectedCard, ...random26])
     setWorkingDeck(trickDeck)
-
     setTimeout(() => {
       startRound(1, trickDeck)
     }, 1800)
   }, [selectedCard, fullDeck, startRound])
 
-  // ===== User jawab Ya/Tidak =====
   const answerPile = useCallback(
     (yes: boolean) => {
       if (yes) {
         const pileIdx = currentAskPile
         setPickedPile(pileIdx)
         setPhase('collecting')
-
         setTimeout(() => {
           const newDeck = piles[pileIdx]
           if (round < ROUNDS) {
@@ -289,7 +209,6 @@ export default function Home() {
     [currentAskPile, piles, round, startRound],
   )
 
-  // ===== Auto-reveal =====
   useEffect(() => {
     if (phase !== 'final-reveal' || !autoReveal) return
     if (revealIndex < 3) {
@@ -307,7 +226,6 @@ export default function Home() {
     setRevealIndex(0)
   }, [])
 
-  // ===== Reset =====
   const reset = useCallback(() => {
     setPhase('intro')
     setShuffledDeck([])
@@ -322,7 +240,6 @@ export default function Home() {
     setAutoReveal(false)
   }, [])
 
-  // ===== Progress bar =====
   const progress = useMemo(() => {
     switch (phase) {
       case 'intro': return 0
@@ -340,113 +257,114 @@ export default function Home() {
     }
   }, [phase, round])
 
+  // Phase number for "current step" indicator
+  const stepNum = useMemo(() => {
+    const map: Record<GamePhase, string> = {
+      intro: '00',
+      shuffling: '01',
+      'reveal-selection': '02',
+      memorize: '03',
+      'trick-prep': '04',
+      dealing: '05',
+      'ask-pile': '06',
+      collecting: '07',
+      'final-reveal': '08',
+      'trick-reveal': '09',
+      completed: '10',
+    }
+    return map[phase] || '00'
+  }, [phase])
+
   return (
-    <div className="min-h-screen bg-[#efe6d0] text-[#1a1410]">
-      <main className="max-w-5xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
-        {/* ===== MASTHEAD ===== */}
-        <header className="mb-8">
-          <div className="flex items-baseline justify-between border-b-2 border-[#1a1410] pb-2 mb-1">
-            <div className="smallcaps text-[10px] sm:text-xs text-[#722637] tracking-widest">
-              Sebuah Treatise Matematis
-            </div>
-            <div className="font-mono text-[10px] sm:text-xs text-[#6e5f4c]">MMXXVI · No. I</div>
+    <div className="min-h-screen bg-white text-[#0a0a0a]">
+      {/* Sticky minimal header */}
+      <header className="sticky top-0 z-20 bg-white border-b border-[#0a0a0a]">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 py-3 flex items-baseline justify-between">
+          <div className="flex items-baseline gap-3">
+            <span className="font-mono text-xs text-[#c41e3a] font-bold">TRIK SULAP KARTU</span>
+            <span className="font-mono text-[10px] text-[#737373] hidden sm:inline">DETERMINISTIK</span>
           </div>
-          <div className="flex items-baseline justify-between text-[10px] sm:text-xs text-[#6e5f4c] smallcaps">
-            <span>Vol. I — Cartomancy Deterministik</span>
-            <span>Harga: Sumbang</span>
+          <div className="font-mono text-[10px] text-[#737373]">
+            step {stepNum} · {Math.round(progress)}%
           </div>
+        </div>
+        {/* Thin progress line */}
+        <div className="h-px bg-[#e5e5e5] relative">
+          <div
+            className="absolute top-0 left-0 h-px bg-[#c41e3a] transition-all"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </header>
 
-          <h1 className="font-display font-black text-4xl sm:text-6xl leading-[0.95] mt-8 text-[#1a1410]">
-            Trik Sulap Kartu
-          </h1>
-          <p className="font-display italic text-xl sm:text-2xl text-[#722637] mt-1 mb-4">
-            atau, Bagaimana Temanmu Selalu Tahu Kartumu
-          </p>
-
-          <p className="font-body text-base sm:text-lg leading-relaxed text-[#2c241b] max-w-2xl dropcap">
-            Pilih satu kartu dari deck standar berisi lima-puluh-dua. Kocok, bagi, dan tanyakan:
-            apakah kartumu ada di tumpukan ini? Temanmu akan bertanya demikian hingga tersisa tiga
-            kartu — dan kartumu <em>pasti</em> berada di antaranya. Bagaimana mungkin? Jawabannya,
-            seperti akan kami tunjukkan, sesederhana <span className="font-mono text-sm bg-[#e6dcc4] px-1.5 py-0.5">c* = D − R</span>.
-          </p>
-
-          <Ornament />
-        </header>
-
-        {/* ===== Tabs (editorial style) ===== */}
+      <main className="max-w-7xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
         <Tabs defaultValue="game" className="w-full">
-          <div className="border-y border-[#1a1410] py-2 mb-6">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 bg-transparent border-0 h-auto p-0 gap-0">
+          {/* Tabs — brutalist style */}
+          <div className="border-b border-[#0a0a0a] mb-8">
+            <TabsList className="bg-transparent border-0 p-0 h-auto gap-0 w-auto inline-flex">
               <TabsTrigger
                 value="game"
-                className="font-display font-bold text-sm data-[state=active]:bg-[#1a1410] data-[state=active]:text-[#efe6d0] data-[state=active]:shadow-none border border-[#1a1410] -mr-px data-[state=active]:z-10 py-2 rounded-none transition-colors"
+                className="font-mono text-xs font-bold tracking-widest data-[state=active]:bg-[#0a0a0a] data-[state=active]:text-white data-[state=active]:shadow-none border border-[#0a0a0a] -mr-px px-5 py-2.5 rounded-none transition-colors"
               >
-                I. PANGGUNG SULAP
+                01 / GAME
               </TabsTrigger>
               <TabsTrigger
                 value="math"
-                className="font-display font-bold text-sm data-[state=active]:bg-[#1a1410] data-[state=active]:text-[#efe6d0] data-[state=active]:shadow-none border border-[#1a1410] -ml-px data-[state=active]:z-10 py-2 rounded-none transition-colors"
+                className="font-mono text-xs font-bold tracking-widest data-[state=active]:bg-[#0a0a0a] data-[state=active]:text-white data-[state=active]:shadow-none border border-[#0a0a0a] -ml-px px-5 py-2.5 rounded-none transition-colors"
               >
-                II. TREATISE MATEMATIS
+                02 / TREATISE
               </TabsTrigger>
             </TabsList>
           </div>
 
-          {/* ===== TAB 1: GAME ===== */}
+          {/* ===== TAB: GAME ===== */}
           <TabsContent value="game">
-            {/* Progress as editorial pagination */}
-            <div className="flex items-baseline justify-between text-[11px] font-mono text-[#6e5f4c] mb-3">
-              <span>Ronde {round}/{ROUNDS}</span>
-              <span>hal. {String(Math.max(1, Math.round(progress / 12))).padStart(2, '0')} dari {String(Math.ceil(100 / 12)).padStart(2, '0')}</span>
-            </div>
-            <div className="h-px bg-[#d4c4a3] relative mb-6">
-              <div
-                className="absolute top-0 left-0 h-1 -translate-y-1/2 bg-[#722637] transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-0">
+              {/* Game stage */}
+              <div className="lg:pr-8 lg:border-r lg:border-[#e5e5e5] lg:min-h-[600px]">
+                <GameStage
+                  phase={phase}
+                  shuffledDeck={shuffledDeck}
+                  workingDeck={workingDeck}
+                  selectedCard={selectedCard}
+                  piles={piles}
+                  currentAskPile={currentAskPile}
+                  pickedPile={pickedPile}
+                  round={round}
+                  finalThree={finalThree}
+                  revealIndex={revealIndex}
+                  autoReveal={autoReveal}
+                  onStart={startTrick}
+                  onChooseCard={chooseCard}
+                  onTrikProper={startTrikProper}
+                  onAnswer={answerPile}
+                  onTriggerReveal={triggerReveal}
+                  onReset={reset}
+                />
+              </div>
 
-            <GameStage
-              phase={phase}
-              shuffledDeck={shuffledDeck}
-              workingDeck={workingDeck}
-              selectedCard={selectedCard}
-              piles={piles}
-              currentAskPile={currentAskPile}
-              pickedPile={pickedPile}
-              round={round}
-              finalThree={finalThree}
-              revealIndex={revealIndex}
-              autoReveal={autoReveal}
-              onStart={startTrick}
-              onChooseCard={chooseCard}
-              onTrikProper={startTrikProper}
-              onAnswer={answerPile}
-              onTriggerReveal={triggerReveal}
-              onReset={reset}
-            />
-
-            {/* Editorial footer with hint */}
-            <div className="mt-8 pt-4 border-t border-[#d4c4a3] text-[11px] text-[#6e5f4c] italic">
-              <span className="smallcaps not-italic text-[#722637]">Catatan editor</span>{' '}
-              — Setelah selesai, lanjut ke Artikel II untuk memahami rahasia matematis di balik
-              trik ini. Atau baca dulu, baru mainkan.
+              {/* Contextual math side panel */}
+              <div className="lg:pl-0 mt-8 lg:mt-0">
+                <ContextualMath
+                  phase={phase}
+                  round={round}
+                  rounds={ROUNDS}
+                  selectedCard={selectedCard}
+                  piles={piles}
+                  currentAskPile={currentAskPile}
+                  pickedPile={pickedPile}
+                  workingDeckSize={workingDeck.length}
+                  finalThreeSize={finalThree.length}
+                />
+              </div>
             </div>
           </TabsContent>
 
-          {/* ===== TAB 2: MATH EXPLANATION ===== */}
+          {/* ===== TAB: MATH ===== */}
           <TabsContent value="math">
             <MathExplanation />
           </TabsContent>
         </Tabs>
-
-        {/* ===== FOOTER ===== */}
-        <footer className="mt-12 pt-4 border-t-2 border-[#1a1410]">
-          <div className="flex items-baseline justify-between text-[10px] sm:text-xs text-[#6e5f4c] smallcaps">
-            <span>Dicetak untuk pemilik repo</span>
-            <span className="font-mono">c* = D − R</span>
-          </div>
-        </footer>
       </main>
     </div>
   )
@@ -480,70 +398,65 @@ function GameStage(props: GameStageProps) {
     onStart, onChooseCard, onTrikProper, onAnswer, onTriggerReveal, onReset,
   } = props
 
-  // ===== INTRO =====
   if (phase === 'intro') {
     return (
-      <section className="py-10 sm:py-16 text-center">
-        <div className="font-display text-7xl sm:text-9xl text-[#722637] leading-none mb-6 select-none">
-          ♠
+      <section className="py-10 sm:py-20">
+        <div className="font-mono text-[10px] tracking-widest text-[#737373] mb-4">
+          00 / INIT
         </div>
-        <h2 className="font-display font-black text-3xl sm:text-5xl mb-3 leading-tight">
-          Sebuah Percobaan
+        <h2 className="font-display font-bold text-4xl sm:text-6xl leading-[0.95] mb-4 max-w-xl">
+          Sebuah percobaan deterministik.
         </h2>
-        <p className="font-body italic text-lg sm:text-xl text-[#722637] mb-6">
-          dalam seni menemukan yang tersembunyi
-        </p>
-        <p className="font-body text-base sm:text-lg leading-relaxed text-[#2c241b] max-w-md mx-auto mb-8">
-          Dalam percobaan ini, engkau akan memilih satu kartu dari deck standar lima-puluh-dua.
-          Mesinpun, dengan pembagian dan pertanyaan yang sungguh-sungguh, akan menemukan kartumu
-          di antara tiga kartu terakhir — tanpa keberuntungan, tanpa pengetahuan tersembunyi.
+        <p className="font-body text-base sm:text-lg leading-relaxed text-[#404040] max-w-md mb-8">
+          Pilih satu kartu dari 52. Sistem akan menemukan kartu tersebut di antara 3 kartu
+          terakhir. Tanpa keberuntungan. Hanya operasi matematis pada himpunan terbatas.
         </p>
         <button
           onClick={onStart}
-          className="font-display font-bold text-sm sm:text-base smallcaps tracking-wider bg-[#1a1410] text-[#efe6d0] px-8 py-3 border-2 border-[#1a1410] hover:bg-[#722637] hover:border-[#722637] transition-colors"
+          className="font-mono text-xs font-bold tracking-widest bg-[#0a0a0a] text-white px-7 py-3 hover:bg-[#c41e3a] transition-colors"
         >
-          Mulai Percobaan →
+          MULAI PERCOBAAN
         </button>
       </section>
     )
   }
 
-  // ===== SHUFFLING =====
   if (phase === 'shuffling') {
     return (
-      <section className="py-16 text-center">
+      <section className="py-20">
+        <div className="font-mono text-[10px] tracking-widest text-[#737373] mb-3">
+          01 / SHUFFLE
+        </div>
+        <h3 className="font-display font-bold text-3xl mb-3">Mengocok 52 kartu.</h3>
+        <p className="font-mono text-xs text-[#737373] mb-6">
+          σ ~ Uniform(S_52)
+        </p>
         <motion.div
           animate={{ rotate: 360 }}
-          transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-          className="font-display text-5xl mb-4 text-[#722637]"
+          transition={{ duration: 0.6, repeat: Infinity, ease: 'linear' }}
+          className="font-mono text-3xl text-[#c41e3a]"
         >
-          ♣
+          +
         </motion.div>
-        <p className="font-display text-xl smallcaps tracking-widest text-[#2c241b]">Mengocok...</p>
-        <p className="font-body italic text-sm text-[#6e5f4c] mt-2">
-          Acak seragam dari 52! permutasi
-        </p>
       </section>
     )
   }
 
-  // ===== REVEAL-SELECTION (52 cards) =====
   if (phase === 'reveal-selection') {
     return (
       <section>
-        <div className="mb-4">
-          <span className="smallcaps text-[10px] text-[#722637] tracking-widest">§ I.1 — Seleksi</span>
-          <h3 className="font-display font-bold text-xl sm:text-2xl mt-1">Pilih Satu Kartu</h3>
-          <p className="font-body text-sm text-[#6e5f4c] italic mt-1">
-            Klik salah satu. Hafalkan. Jangan tunjukkan ke siapa pun — mesin pun tidak akan tahu,
-            setidaknya bukan dari pilihannya sendiri.
-          </p>
+        <div className="font-mono text-[10px] tracking-widest text-[#737373] mb-3">
+          02 / SELECT
         </div>
+        <h3 className="font-display font-bold text-2xl sm:text-3xl mb-2">Pilih satu kartu.</h3>
+        <p className="font-body text-sm text-[#737373] mb-5">
+          Klik salah satu kartu di bawah. Hafalkan. Sistem tidak akan mengamati pilihanmu.
+        </p>
         <div className="grid grid-cols-9 sm:grid-cols-13 gap-1.5 justify-items-center">
           {shuffledDeck.map((card, i) => (
             <motion.div
               key={card.id}
-              initial={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.015, duration: 0.2 }}
             >
@@ -555,60 +468,49 @@ function GameStage(props: GameStageProps) {
     )
   }
 
-  // ===== MEMORIZE =====
   if (phase === 'memorize' && selectedCard) {
     return (
-      <section className="py-8 text-center">
-        <span className="smallcaps text-[10px] text-[#722637] tracking-widest">§ I.2 — Pengingat</span>
-        <h3 className="font-display font-bold text-xl sm:text-2xl mt-1 mb-6">Hafalkan Kartumu</h3>
+      <section className="py-8">
+        <div className="font-mono text-[10px] tracking-widest text-[#737373] mb-3">
+          03 / MEMORIZE
+        </div>
+        <h3 className="font-display font-bold text-2xl sm:text-3xl mb-6">Hafalkan kartumu.</h3>
         <motion.div
-          initial={{ scale: 0.6, opacity: 0, rotateY: 180 }}
+          initial={{ scale: 0.7, opacity: 0, rotateY: 180 }}
           animate={{ scale: 1, opacity: 1, rotateY: 0 }}
-          transition={{ duration: 0.5 }}
-          className="inline-block mb-4"
+          transition={{ duration: 0.4 }}
+          className="inline-block mb-5"
         >
           <MiniCard card={selectedCard} size="lg" highlight />
         </motion.div>
-        <p className="font-body text-base text-[#2c241b]">
-          Kartu terpilih: <span className="font-display font-bold text-[#722637] text-lg">{selectedCard.label}</span>
-        </p>
-        <p className="font-body italic text-xs text-[#6e5f4c] mt-2 mb-6 max-w-sm mx-auto">
-          Tidak ada yang melihat ini selain engkau sendiri. Mesin tidak akan melihat pilihanmu —
-          ia hanya akan memeriksa keberadaannya.
+        <p className="font-body text-sm text-[#737373] mb-6">
+          Kartu terpilih: <span className="font-mono font-bold text-[#c41e3a] text-base">{selectedCard.label}</span>
         </p>
         <button
           onClick={onTrikProper}
-          className="font-display font-bold text-sm smallcaps tracking-wider bg-[#1a1410] text-[#efe6d0] px-8 py-3 border-2 border-[#1a1410] hover:bg-[#722637] hover:border-[#722637] transition-colors"
+          className="font-mono text-xs font-bold tracking-widest bg-[#0a0a0a] text-white px-7 py-3 hover:bg-[#c41e3a] transition-colors"
         >
-          Serahkan ke Mesin →
+          SERAHKAN KE SISTEM
         </button>
       </section>
     )
   }
 
-  // ===== TRICK-PREP =====
   if (phase === 'trick-prep') {
     return (
-      <section className="py-10 text-center">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-          className="font-display text-4xl mb-4 text-[#8a6b1f]"
-        >
-          ♦
-        </motion.div>
-        <span className="smallcaps text-[10px] text-[#722637] tracking-widest">§ I.3 — Persiapan</span>
-        <h3 className="font-display font-bold text-xl sm:text-2xl mt-1">Mesin Mengambil 27 Kartu</h3>
-        <p className="font-body text-sm text-[#6e5f4c] italic mt-2 mb-6 max-w-md mx-auto">
-          Mesin menyisihkan dua-puluh-tujuh kartu (termasuk kartumu) untuk trik ini. Angka 27
-          dipilih bukan kebetulan: <span className="font-mono not-italic">27 = 3³</span>, sehingga
-          tiga ronde pembagian akan menemukan kartumu pasti.
+      <section className="py-10">
+        <div className="font-mono text-[10px] tracking-widest text-[#737373] mb-3">
+          04 / NARROW
+        </div>
+        <h3 className="font-display font-bold text-2xl sm:text-3xl mb-2">Sistem menyisihkan 27 kartu.</h3>
+        <p className="font-mono text-xs text-[#737373] mb-6">
+          |W₀| = 27 · 27 = 3³
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-2xl mx-auto">
+        <div className="flex flex-wrap items-center gap-1.5 max-w-2xl">
           {workingDeck.map((card, i) => (
             <motion.div
               key={card.id}
-              initial={{ opacity: 0, scale: 0.6 }}
+              initial={{ opacity: 0, scale: 0.5 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.04, duration: 0.25 }}
             >
@@ -620,28 +522,27 @@ function GameStage(props: GameStageProps) {
     )
   }
 
-  // ===== DEALING =====
   if (phase === 'dealing') {
     return (
       <section>
-        <span className="smallcaps text-[10px] text-[#722637] tracking-widest">
-          § I.{round + 3} — Pembagian Ronde {round}
-        </span>
-        <h3 className="font-display font-bold text-xl sm:text-2xl mt-1 mb-4">
-          Mesin Membagi ke Tiga Tumpukan
+        <div className="font-mono text-[10px] tracking-widest text-[#737373] mb-3">
+          05 / DEAL · R{round}
+        </div>
+        <h3 className="font-display font-bold text-2xl sm:text-3xl mb-5">
+          Sistem membagi ke 3 tumpukan.
         </h3>
         <div className="grid grid-cols-3 gap-4 sm:gap-8">
           {piles.map((pile, i) => (
             <div key={i} className="flex flex-col items-center">
-              <div className="smallcaps text-[10px] text-[#6e5f4c] tracking-widest mb-2">
-                Tumpukan {romanize(i + 1)}
+              <div className="font-mono text-[10px] text-[#737373] tracking-widest mb-2">
+                P{i + 1} · {pile.length}
               </div>
               <div className="relative h-44 w-full flex items-end justify-center">
                 <AnimatePresence>
                   {pile.map((card, j) => (
                     <motion.div
                       key={card.id}
-                      initial={{ opacity: 0, y: -150 }}
+                      initial={{ opacity: 0, y: -120 }}
                       animate={{ opacity: 1, y: -j * 3, x: j * 0.5 }}
                       transition={{ delay: j * 0.04, duration: 0.25 }}
                       className="absolute"
@@ -652,9 +553,6 @@ function GameStage(props: GameStageProps) {
                   ))}
                 </AnimatePresence>
               </div>
-              <div className="font-mono text-[10px] text-[#6e5f4c] mt-1">
-                {pile.length} kartu
-              </div>
             </div>
           ))}
         </div>
@@ -662,19 +560,18 @@ function GameStage(props: GameStageProps) {
     )
   }
 
-  // ===== ASK-PILE =====
   if (phase === 'ask-pile') {
     const isLastPile = currentAskPile === PILE_COUNT - 1
     return (
       <section>
-        <span className="smallcaps text-[10px] text-[#722637] tracking-widest">
-          § I.{round + 3} — Interogasi Ronde {round}
-        </span>
-        <h3 className="font-display font-bold text-xl sm:text-2xl mt-1 mb-2">
-          Apakah Kartumu di Tumpukan {romanize(currentAskPile + 1)}?
+        <div className="font-mono text-[10px] tracking-widest text-[#737373] mb-3">
+          06 / QUERY · R{round}
+        </div>
+        <h3 className="font-display font-bold text-2xl sm:text-3xl mb-2">
+          Apakah kartumu di P{currentAskPile + 1}?
         </h3>
-        <p className="font-body text-sm text-[#6e5f4c] italic mb-4">
-          Kartumu: <span className="font-display font-bold not-italic text-[#722637]">{selectedCard?.label}</span>
+        <p className="font-mono text-xs text-[#737373] mb-5">
+          c* = <span className="text-[#c41e3a] font-bold">{selectedCard?.label}</span>
         </p>
 
         <div className="grid grid-cols-3 gap-4 sm:gap-8 mb-6">
@@ -685,14 +582,12 @@ function GameStage(props: GameStageProps) {
               <motion.div
                 key={i}
                 animate={isCurrent ? { scale: 1.04 } : { scale: 1 }}
-                className={`flex flex-col items-center p-2 border-2 ${
-                  isCurrent ? 'border-[#722637] bg-[#f5ecd5]/40' : isPast ? 'border-[#d4c4a3] opacity-50' : 'border-transparent'
-                }`}
+                className={`flex flex-col items-center p-2 border ${isCurrent ? 'border-[#c41e3a] bg-[#fafaf7]' : isPast ? 'border-[#e5e5e5] opacity-50' : 'border-transparent'}`}
               >
-                <div className="smallcaps text-[10px] text-[#6e5f4c] tracking-widest mb-2">
-                  Tumpukan {romanize(i + 1)}
-                  {isPast && <span className="ml-1 not-italic">✗</span>}
-                  {isCurrent && <span className="ml-1 not-italic text-[#722637]">←</span>}
+                <div className="font-mono text-[10px] text-[#737373] tracking-widest mb-2">
+                  P{i + 1} · {pile.length}
+                  {isPast && <span className="ml-1">✗</span>}
+                  {isCurrent && <span className="ml-1 text-[#c41e3a]">←</span>}
                 </div>
                 <div className="relative h-44 w-full flex items-end justify-center">
                   {pile.map((card, j) => (
@@ -708,48 +603,44 @@ function GameStage(props: GameStageProps) {
                     </div>
                   ))}
                 </div>
-                <div className="font-mono text-[10px] text-[#6e5f4c] mt-1">
-                  {pile.length} kartu
-                </div>
               </motion.div>
             )
           })}
         </div>
 
-        <div className="flex justify-center gap-3">
+        <div className="flex gap-3">
           <button
             onClick={() => onAnswer(true)}
-            className="font-display font-bold text-sm smallcaps tracking-wider bg-[#1a1410] text-[#efe6d0] px-6 py-2.5 border-2 border-[#1a1410] hover:bg-[#722637] hover:border-[#722637] transition-colors"
+            className="font-mono text-xs font-bold tracking-widest bg-[#0a0a0a] text-white px-6 py-2.5 hover:bg-[#c41e3a] transition-colors"
           >
-            Ya, ada
+            YA
           </button>
           {!isLastPile && (
             <button
               onClick={() => onAnswer(false)}
-              className="font-display font-bold text-sm smallcaps tracking-wider bg-transparent text-[#1a1410] px-6 py-2.5 border-2 border-[#1a1410] hover:bg-[#1a1410] hover:text-[#efe6d0] transition-colors"
+              className="font-mono text-xs font-bold tracking-widest bg-white text-[#0a0a0a] px-6 py-2.5 border border-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white transition-colors"
             >
-              Tidak
+              TIDAK
             </button>
           )}
         </div>
         {isLastPile && (
-          <p className="font-body italic text-xs text-[#6e5f4c] mt-3 text-center">
-            Tumpukan terakhir — kartumu pasti di sini.
+          <p className="font-body italic text-xs text-[#737373] mt-3">
+            Tumpukan terakhir. Kartu pasti di sini.
           </p>
         )}
       </section>
     )
   }
 
-  // ===== COLLECTING =====
   if (phase === 'collecting' && pickedPile !== null) {
     return (
       <section>
-        <span className="smallcaps text-[10px] text-[#722637] tracking-widest">
-          § I.{round + 3} — Pengumpulan
-        </span>
-        <h3 className="font-display font-bold text-xl sm:text-2xl mt-1 mb-4">
-          Tumpukan {romanize(pickedPile + 1)} Disisihkan
+        <div className="font-mono text-[10px] tracking-widest text-[#737373] mb-3">
+          07 / UPDATE · R{round}
+        </div>
+        <h3 className="font-display font-bold text-2xl sm:text-3xl mb-5">
+          P{pickedPile + 1} disisihkan.
         </h3>
         <div className="grid grid-cols-3 gap-4 sm:gap-8">
           {piles.map((pile, i) => {
@@ -757,12 +648,10 @@ function GameStage(props: GameStageProps) {
             return (
               <div
                 key={i}
-                className={`flex flex-col items-center p-2 border-2 ${
-                  isPicked ? 'border-[#722637] bg-[#f5ecd5]/60 scale-105' : 'border-[#d4c4a3] opacity-30'
-                } transition-all`}
+                className={`flex flex-col items-center p-2 border ${isPicked ? 'border-[#0a0a0a] bg-[#fafaf7] scale-105' : 'border-[#e5e5e5] opacity-30'} transition-all`}
               >
-                <div className="smallcaps text-[10px] text-[#6e5f4c] tracking-widest mb-2">
-                  Tumpukan {romanize(i + 1)}{isPicked && ' ★'}
+                <div className="font-mono text-[10px] text-[#737373] tracking-widest mb-2">
+                  P{i + 1}{isPicked && ' · ★'}
                 </div>
                 <div className="relative h-44 w-full flex items-end justify-center">
                   {pile.map((card, j) => (
@@ -777,9 +666,6 @@ function GameStage(props: GameStageProps) {
                       <MiniCard card={card} size="sm" />
                     </div>
                   ))}
-                </div>
-                <div className="font-mono text-[10px] text-[#6e5f4c] mt-1">
-                  {pile.length} kartu
                 </div>
               </div>
             )
@@ -789,35 +675,31 @@ function GameStage(props: GameStageProps) {
     )
   }
 
-  // ===== FINAL-REVEAL =====
   if (phase === 'final-reveal' && finalThree.length === 3) {
     return (
-      <section className="py-6 text-center">
-        <span className="smallcaps text-[10px] text-[#722637] tracking-widest">
-          § I.{ROUNDS + 3} — Penyingkapan Akhir
-        </span>
-        <h3 className="font-display font-bold text-xl sm:text-2xl mt-1 mb-2">
-          Tiga Kartu yang Tersisa
-        </h3>
-        <p className="font-body text-sm text-[#6e5f4c] italic mb-6 max-w-md mx-auto">
-          Setelah dua ronde pembagian, hanya tiga kartu tersisa. Salah satunya — dengar baik-baik —
-          adalah kartumu.
+      <section className="py-6">
+        <div className="font-mono text-[10px] tracking-widest text-[#737373] mb-3">
+          08 / CONVERGE
+        </div>
+        <h3 className="font-display font-bold text-2xl sm:text-3xl mb-2">Tiga kartu tersisa.</h3>
+        <p className="font-body text-sm text-[#737373] italic mb-6 max-w-md">
+          |W₂| = 3. Kartu pengguna pasti ada di antaranya.
         </p>
 
-        <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-10 mb-8">
+        <div className="flex flex-wrap items-center gap-6 sm:gap-10 mb-8">
           {finalThree.map((card, i) => {
             const revealed = i < revealIndex
             const isUserCard = selectedCard?.id === card.id
             return (
               <motion.div
                 key={card.id}
-                initial={{ opacity: 0, y: 20, scale: 0.7 }}
+                initial={{ opacity: 0, y: 15, scale: 0.8 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ delay: i * 0.15, duration: 0.4 }}
+                transition={{ delay: i * 0.15, duration: 0.3 }}
                 className="flex flex-col items-center"
               >
-                <div className="smallcaps text-[10px] text-[#6e5f4c] tracking-widest mb-2">
-                  Posisi {romanize(i + 1)}
+                <div className="font-mono text-[10px] text-[#737373] tracking-widest mb-2">
+                  {i + 1}/3
                 </div>
                 <motion.div
                   animate={
@@ -825,17 +707,17 @@ function GameStage(props: GameStageProps) {
                       ? { scale: [1, 1.15, 1], rotateZ: [0, -3, 0] }
                       : { scale: 1, rotateZ: 0 }
                   }
-                  transition={{ duration: 0.6, repeat: isUserCard && revealed ? 1 : 0 }}
+                  transition={{ duration: 0.5, repeat: isUserCard && revealed ? 1 : 0 }}
                 >
                   <MiniCard card={card} size="lg" faceDown={!revealed} highlight={isUserCard && revealed} />
                 </motion.div>
                 {isUserCard && revealed && (
                   <motion.div
-                    initial={{ opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="smallcaps text-[10px] text-[#722637] tracking-widest mt-2"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="font-mono text-[10px] text-[#c41e3a] font-bold tracking-widest mt-2"
                   >
-                    ★ Kartumu ★
+                    KARTUMU
                   </motion.div>
                 )}
               </motion.div>
@@ -846,67 +728,40 @@ function GameStage(props: GameStageProps) {
         {revealIndex < 3 && !autoReveal && (
           <button
             onClick={onTriggerReveal}
-            className="font-display font-bold text-sm smallcaps tracking-wider bg-[#722637] text-[#efe6d0] px-8 py-3 border-2 border-[#722637] hover:bg-[#5a1c2a] hover:border-[#5a1c2a] transition-colors"
+            className="font-mono text-xs font-bold tracking-widest bg-[#c41e3a] text-white px-7 py-3 hover:bg-[#0a0a0a] transition-colors"
           >
-            Buka Kartu →
+            BUKA KARTU
           </button>
         )}
       </section>
     )
   }
 
-  // ===== TRICK-REVEAL =====
   if (phase === 'trick-reveal' && selectedCard) {
     return (
-      <section className="py-10 text-center">
-        <motion.div
-          initial={{ scale: 0.4, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.6, type: 'spring' }}
-          className="font-display text-6xl text-[#722637] mb-4 select-none"
-        >
-          ♥
-        </motion.div>
-        <h2 className="font-display font-black text-3xl sm:text-4xl text-[#1a1410] mb-2">
-          Percobaan Berhasil
+      <section className="py-10">
+        <div className="font-mono text-[10px] tracking-widest text-[#737373] mb-3">
+          09 / RESOLVE
+        </div>
+        <h2 className="font-display font-bold text-3xl sm:text-5xl mb-2 leading-tight">
+          Percobaan berhasil.
         </h2>
-        <p className="font-display italic text-lg sm:text-xl text-[#722637] mb-4">
-          kartu pilihanmu — {selectedCard.label} — ditemukan
+        <p className="font-body text-base text-[#404040] mb-2">
+          Kartu pengguna ditemukan:{' '}
+          <span className="font-mono font-bold text-[#c41e3a] text-lg">{selectedCard.label}</span>
         </p>
-        <p className="font-body text-base text-[#2c241b] max-w-md mx-auto mb-8">
-          Meski engkau yang memilih, yang mengocok, yang menjawab — mesin tetap menemukan
-          kartumu. Bukan sihir. Bukan keberuntungan. Hanya <span className="font-mono text-sm bg-[#e6dcc4] px-1.5 py-0.5">c* = D − R</span>.
+        <p className="font-body text-sm text-[#737373] mb-8 max-w-md">
+          Operasi selesai. Determinisme terjaga sepanjang proses.
         </p>
         <button
           onClick={onReset}
-          className="font-display font-bold text-sm smallcaps tracking-wider bg-[#1a1410] text-[#efe6d0] px-8 py-3 border-2 border-[#1a1410] hover:bg-[#722637] hover:border-[#722637] transition-colors"
+          className="font-mono text-xs font-bold tracking-widest bg-[#0a0a0a] text-white px-7 py-3 hover:bg-[#c41e3a] transition-colors"
         >
-          ↻ Ulang Percobaan
+          ULANG
         </button>
       </section>
     )
   }
 
-  // Fallback
-  return (
-    <div className="text-center py-8">
-      <button onClick={onReset} className="font-display text-sm underline">Reset</button>
-    </div>
-  )
-}
-
-// ===== Helper: Roman numerals =====
-function romanize(num: number): string {
-  const lookup: [number, string][] = [
-    [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I'],
-  ]
-  let result = ''
-  let n = num
-  for (const [v, s] of lookup) {
-    while (n >= v) {
-      result += s
-      n -= v
-    }
-  }
-  return result || 'I'
+  return null
 }

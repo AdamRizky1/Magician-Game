@@ -5,8 +5,7 @@ import katex from 'katex'
 import 'katex/dist/katex.min.css'
 
 /**
- * Render rumus LaTeX pakai KaTeX.
- * Style: ink-on-paper, no borders, classic typography.
+ * Inline math via KaTeX. No styling, just typography.
  */
 export function Math({
   tex,
@@ -33,7 +32,7 @@ export function Math({
   if (block) {
     return (
       <div
-        className={`my-5 py-3 px-4 border-l-2 border-[#722637] bg-[#f5ecd5]/40 ${className}`}
+        className={`my-3 overflow-x-auto ${className}`}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     )
@@ -42,7 +41,7 @@ export function Math({
 }
 
 /**
- * Formula box — display dengan label artikel & nomor
+ * Display formula block — monospace style, like code
  */
 export function FormulaBox({
   title,
@@ -52,19 +51,21 @@ export function FormulaBox({
   children: React.ReactNode
 }) {
   return (
-    <div className="my-6 border-y-2 border-[#1a1410] py-5 px-2">
+    <div className="my-6">
       {title && (
-        <div className="smallcaps text-[10px] text-[#722637] tracking-widest mb-2">
+        <div className="font-mono text-[10px] tracking-widest text-[#737373] mb-2">
           {title}
         </div>
       )}
-      <div className="text-center text-[#1a1410] overflow-x-auto">{children}</div>
+      <div className="border-l-2 border-[#c41e3a] pl-4 py-2 bg-[#fafaf7] overflow-x-auto">
+        {children}
+      </div>
     </div>
   )
 }
 
 /**
- * Tahapan skenario — pakai numbered article style
+ * Tahapan skenario — numbered, no decoration
  */
 export function TahapBox({
   num,
@@ -76,34 +77,34 @@ export function TahapBox({
   children: React.ReactNode
 }) {
   return (
-    <div className="my-4 pl-4 border-l-2 border-[#d4c4a3]">
-      <div className="flex items-baseline gap-3 mb-1">
-        <span className="font-mono text-[10px] text-[#722637] smallcaps tracking-widest">
-          §1.{num}
-        </span>
-        <span className="font-display font-bold text-base text-[#1a1410]">{title}</span>
+    <div className="grid grid-cols-[40px_1fr] gap-3 my-4">
+      <div className="font-mono text-sm text-[#737373] pt-0.5">
+        {String(num).padStart(2, '0')}
       </div>
-      <div className="font-body text-sm leading-relaxed text-[#2c241b]">{children}</div>
+      <div>
+        <h4 className="font-display font-bold text-base text-[#0a0a0a] mb-1">{title}</h4>
+        <div className="font-body text-sm leading-relaxed text-[#404040]">{children}</div>
+      </div>
     </div>
   )
 }
 
 /**
- * Insight box — pull quote style dengan left border burgundy
+ * Insight — just bold paragraph with accent
  */
 export function InsightBox({
-  title = 'Catatan Penting',
+  title = 'CATATAN',
   children,
 }: {
   title?: string
   children: React.ReactNode
 }) {
   return (
-    <div className="my-6">
-      <div className="smallcaps text-[10px] text-[#722637] tracking-widest mb-1">
+    <div className="my-6 py-4 border-t border-b border-[#0a0a0a]">
+      <div className="font-mono text-[10px] tracking-widest text-[#c41e3a] mb-2">
         {title}
       </div>
-      <div className="pullquote font-body">
+      <div className="font-body text-base leading-relaxed text-[#0a0a0a]">
         {children}
       </div>
     </div>
@@ -111,7 +112,7 @@ export function InsightBox({
 }
 
 /**
- * Definisi / Teorema — numbered article style
+ * Definisi / Teorema — minimal labels
  */
 export function DefBox({
   label,
@@ -124,10 +125,10 @@ export function DefBox({
 }) {
   return (
     <div className="my-5">
-      <div className="smallcaps text-[10px] text-[#722637] tracking-widest mb-1">
-        {label} — {title}
+      <div className="font-mono text-[10px] tracking-widest text-[#737373] mb-2">
+        {label} · {title}
       </div>
-      <div className="font-body text-sm leading-relaxed text-[#2c241b] pl-4 border-l border-[#d4c4a3]">
+      <div className="font-body text-sm leading-relaxed text-[#0a0a0a] pl-3 border-l border-[#e5e5e5]">
         {children}
       </div>
     </div>
@@ -135,11 +136,11 @@ export function DefBox({
 }
 
 /**
- * Inline variable — mono style
+ * Inline variable — code style
  */
 export function V({ children }: { children: React.ReactNode }) {
   return (
-    <span className="font-mono text-[13px] bg-[#e6dcc4] px-1 py-0.5 border border-[#d4c4a3]">
+    <span className="font-mono text-[13px] text-[#c41e3a]">
       {children}
     </span>
   )
