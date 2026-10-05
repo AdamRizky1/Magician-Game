@@ -6,7 +6,7 @@ import 'katex/dist/katex.min.css'
 
 /**
  * Render rumus LaTeX pakai KaTeX.
- * Mendukung mode inline (default) dan display (block).
+ * Style: ink-on-paper, no borders, classic typography.
  */
 export function Math({
   tex,
@@ -33,7 +33,7 @@ export function Math({
   if (block) {
     return (
       <div
-        className={`katex-block my-4 ${className}`}
+        className={`my-5 py-3 px-4 border-l-2 border-[#722637] bg-[#f5ecd5]/40 ${className}`}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     )
@@ -42,7 +42,7 @@ export function Math({
 }
 
 /**
- * Box untuk rumus utama (warna biru, mirip rumusbox di PDF)
+ * Formula box — display dengan label artikel & nomor
  */
 export function FormulaBox({
   title,
@@ -52,21 +52,19 @@ export function FormulaBox({
   children: React.ReactNode
 }) {
   return (
-    <div className="my-5 bg-blue-950/40 border-2 border-blue-700/50 rounded-lg overflow-hidden">
+    <div className="my-6 border-y-2 border-[#1a1410] py-5 px-2">
       {title && (
-        <div className="bg-blue-800/40 px-4 py-2 text-blue-100 font-semibold text-sm border-b border-blue-700/50">
+        <div className="smallcaps text-[10px] text-[#722637] tracking-widest mb-2">
           {title}
         </div>
       )}
-      <div className="p-5 text-center text-white overflow-x-auto">
-        {children}
-      </div>
+      <div className="text-center text-[#1a1410] overflow-x-auto">{children}</div>
     </div>
   )
 }
 
 /**
- * Box untuk tahapan skenario (warna abu-abu, mirip tahapbox di PDF)
+ * Tahapan skenario — pakai numbered article style
  */
 export function TahapBox({
   num,
@@ -78,39 +76,42 @@ export function TahapBox({
   children: React.ReactNode
 }) {
   return (
-    <div className="my-3 bg-slate-800/40 border-l-4 border-slate-500 rounded-r-lg p-4">
-      <div className="text-slate-200 font-semibold mb-1.5 flex items-baseline gap-2">
-        <span className="text-amber-400 text-sm font-mono">TAHAP {num}</span>
-        <span className="text-slate-300">— {title}</span>
+    <div className="my-4 pl-4 border-l-2 border-[#d4c4a3]">
+      <div className="flex items-baseline gap-3 mb-1">
+        <span className="font-mono text-[10px] text-[#722637] smallcaps tracking-widest">
+          §1.{num}
+        </span>
+        <span className="font-display font-bold text-base text-[#1a1410]">{title}</span>
       </div>
-      <div className="text-slate-400 text-sm leading-relaxed">{children}</div>
+      <div className="font-body text-sm leading-relaxed text-[#2c241b]">{children}</div>
     </div>
   )
 }
 
 /**
- * Box untuk insight (warna oranye, mirip insightbox di PDF)
+ * Insight box — pull quote style dengan left border burgundy
  */
 export function InsightBox({
-  title = 'Insight Penting',
+  title = 'Catatan Penting',
   children,
 }: {
   title?: string
   children: React.ReactNode
 }) {
   return (
-    <div className="my-5 bg-amber-950/30 border-2 border-amber-600/50 rounded-lg p-4">
-      <div className="text-amber-300 font-semibold mb-1.5 flex items-center gap-2 text-sm">
-        <span>💡</span>
-        <span>{title}</span>
+    <div className="my-6">
+      <div className="smallcaps text-[10px] text-[#722637] tracking-widest mb-1">
+        {title}
       </div>
-      <div className="text-slate-300 text-sm leading-relaxed">{children}</div>
+      <div className="pullquote font-body">
+        {children}
+      </div>
     </div>
   )
 }
 
 /**
- * Box untuk definisi/teorema (mirip tcolorbox theorem)
+ * Definisi / Teorema — numbered article style
  */
 export function DefBox({
   label,
@@ -122,22 +123,23 @@ export function DefBox({
   children: React.ReactNode
 }) {
   return (
-    <div className="my-4 bg-slate-800/30 border border-slate-600/50 rounded-lg overflow-hidden">
-      <div className="bg-slate-700/40 px-4 py-1.5 text-slate-200 text-xs font-semibold border-b border-slate-600/50">
-        <span className="text-emerald-400">{label}</span>{' '}
-        <span className="text-slate-300">({title})</span>
+    <div className="my-5">
+      <div className="smallcaps text-[10px] text-[#722637] tracking-widest mb-1">
+        {label} — {title}
       </div>
-      <div className="p-4 text-slate-300 text-sm leading-relaxed">{children}</div>
+      <div className="font-body text-sm leading-relaxed text-[#2c241b] pl-4 border-l border-[#d4c4a3]">
+        {children}
+      </div>
     </div>
   )
 }
 
 /**
- * Inline code-style notation untuk variabel himpunan
+ * Inline variable — mono style
  */
 export function V({ children }: { children: React.ReactNode }) {
   return (
-    <span className="font-mono text-emerald-300 bg-emerald-950/30 px-1.5 py-0.5 rounded text-sm">
+    <span className="font-mono text-[13px] bg-[#e6dcc4] px-1 py-0.5 border border-[#d4c4a3]">
       {children}
     </span>
   )
