@@ -62,12 +62,13 @@ Output static ada di `./out/`. Buka `out/index.html` langsung, atau serve dengan
 
 ## Design
 
-Estetika **"Vintage Magic Treatise"** — terinspirasi buku mantera / magic book abad ke-19:
+Estetika **"Swiss Brutalist"** — restraint sebagai filosofi desain. Pure typography + white space, satu accent color.
 
-- **Palet**: parchment cream `#efe6d0` + warm black `#1a1410` + deep burgundy `#722637` + antique gold `#8a6b1f`
-- **Tipografi**: Playfair Display (display headings) + Source Serif 4 (body) + JetBrains Mono (kode/angka)
-- **Detail editorial**: drop caps, small caps labels, ornament suit dividers (♥ ♦ ♣ ♠), pull quotes, marginalia, double-rule dividers
-- **Tanpa AI-slop**: tidak ada dark gradient, tidak ada glassmorphism, tidak ada emoji, tidak ada icon library generic
+- **Palet**: pure white `#ffffff` + black `#0a0a0a` + cardinal red `#c41e3a` (accent, dipakai sparing)
+- **Tipografi**: Space Grotesk (display) + Inter (body) + JetBrains Mono (math/code/numbers)
+- **Layout**: 2-kolom grid di desktop (game stage | math trace side panel), single column mobile
+- **Tanpa AI-slop**: no gradients, no shadows, no glassmorphism, no ornaments, no suit symbols as decoration, no em-dashes, no Lucide icons, no rounded corners (radius 0)
+- **Contextual Math Trace**: sticky side panel yang update tiap game phase, nunjukin operasi matematis yang sedang berlangsung dengan rumus KaTeX real-time
 
 ## Lisensi
 
