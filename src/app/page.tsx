@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { MathExplanation } from '@/components/math/MathExplanation'
 import {
   Dialog,
   DialogContent,
@@ -399,8 +401,8 @@ export default function Home() {
           </p>
         </header>
 
-        {/* Progress bar */}
-        <div className="mb-6 max-w-3xl mx-auto">
+        {/* Progress bar — only visible on Game tab */}
+        <div className="mb-6 max-w-3xl mx-auto" data-game-only>
           <div className="flex justify-between text-xs text-slate-400 mb-1.5">
             <span className="flex items-center gap-1">
               <Layers className="w-3 h-3" /> Ronde {round}/{ROUNDS}
@@ -410,6 +412,19 @@ export default function Home() {
           <Progress value={progress} className="h-2 bg-slate-800" />
         </div>
 
+        {/* Tabs: Game | Math Explanation */}
+        <Tabs defaultValue="game" className="w-full">
+          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-4 bg-slate-900/60 border border-slate-700">
+            <TabsTrigger value="game" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300">
+              <Wand2 className="w-4 h-4 mr-1.5" /> Game Trik Sulap
+            </TabsTrigger>
+            <TabsTrigger value="math" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300">
+              <Brain className="w-4 h-4 mr-1.5" /> Penjelasan Matematis
+            </TabsTrigger>
+          </TabsList>
+
+          {/* ===== TAB 1: GAME ===== */}
+          <TabsContent value="game">
         {/* Main content area */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           {/* LEFT: Game stage */}
@@ -557,6 +572,15 @@ export default function Home() {
             </Card>
           </div>
         </div>
+          </TabsContent>
+
+          {/* ===== TAB 2: MATH EXPLANATION ===== */}
+          <TabsContent value="math">
+            <div className="bg-slate-900/40 border border-slate-700 rounded-xl p-4 sm:p-6">
+              <MathExplanation />
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* Footer */}
         <footer className="mt-8 text-center text-xs text-slate-500 pb-4">
